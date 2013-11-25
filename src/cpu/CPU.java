@@ -62,6 +62,28 @@ public class CPU {
 	protected void setLowReg(byte reg, int value) {
 		regs[reg & 0x7][0] = value;
 	}
+	
+	protected int setAddFlags(int op1, int op2) {
+		int result = op1 + op2;
+		//Carry if unsigned value has Bit 32 SET
+		cpsr.carry = ((op1 & 0xffffffffL) + (op2 & 0xffffffffL) > 0xffffffffL);
+		//Overflow if two positives result in a negative or two negatives result in a positive
+		cpsr.overflow = (op1 > 0 && op2 > 0 && result < 0) || (op1 < 0 && op2 < 0 && result >= 0);
+		cpsr.negative = (result < 0);
+		cpsr.zero = (result == 0);
+		return result;
+	}
+
+	protected int setSubFlags(int op1, int op2) {
+		int result = op1 - op2;
+		//Odd, but must be true because a CMP calls this and CS (Carry SET) is unsigned higher or same o.0
+		cpsr.carry = ((op1 & 0xffffffffL) >= (op2 & 0xffffffffL));
+		//Overflow if two positives result in a negative or two negatives result in a positive
+		cpsr.overflow = (op1 > 0 && op2 < 0 && result < 0) || (op1 < 0 && op2 > 0 && result >= 0);
+		cpsr.negative = (result < 0);
+		cpsr.zero = (result == 0);
+		return result;
+	}
 
 	protected int getStatusReg(int num) {
 		return 0;

@@ -23,9 +23,15 @@ public class THUMBProcessor implements CPU.IProcessor {
 		case 0x2: asrImm(top, bot); break;
 		case 0x3: /*Add or Sub*/
 			if ((top & 0x2) == 0) /*Bit 9 CLEAR*/
-				add(top, bot); 
+				if ((top & 0x4) == 0) /*Bit 10 CLEAR*/
+					addReg(top, bot);
+				else
+					addImm3(top, bot);
 			else
-				sub(top, bot);
+				if ((top & 0x4) == 0) /*Bit 10 CLEAR*/
+					subReg(top, bot);
+				else
+					subImm3(top, bot);
 			break;
 		case 0x4: movImm(top, bot); break;
 		case 0x5: cmpImm(top, bot); break;
@@ -158,12 +164,36 @@ public class THUMBProcessor implements CPU.IProcessor {
 		cpu.setLowReg(bot, val);
 	}
 
-	private void add(byte top, byte bot) {
-
+	private void addReg(byte top, byte bot) {
+		//Last bit of top, first 2 bits of bot
+		int arg = cpu.getLowReg((byte) (((top & 0x1) << 2) | ((bot & 0xC0) >>> 6)));
+		int source = cpu.getLowReg((byte) ((bot & 0x38) >>> 3));
+		//The method will & 0x7 for us
+		cpu.setLowReg(bot, cpu.setAddFlags(source, arg));
 	}
 
-	private void sub(byte top, byte bot) {
+	private void addImm3(byte top, byte bot) {
+		//Last bit of top, first 2 bits of bot
+		int arg = ((top & 0x1) << 2) | ((bot & 0xC0) >>> 6);
+		int source = cpu.getLowReg((byte) ((bot & 0x38) >>> 3));
+		//The method will & 0x7 for us
+		cpu.setLowReg(bot, cpu.setAddFlags(source, arg));
+	}
 
+	private void subReg(byte top, byte bot) {
+		//Last bit of top, first 2 bits of bot
+		int arg = cpu.getLowReg((byte) (((top & 0x1) << 2) | ((bot & 0xC0) >>> 6)));
+		int source = cpu.getLowReg((byte) ((bot & 0x38) >>> 3));
+		//The method will & 0x7 for us
+		cpu.setLowReg(bot, cpu.setSubFlags(source, arg));
+	}
+
+	private void subImm3(byte top, byte bot) {
+		//Last bit of top, first 2 bits of bot
+		int arg = ((top & 0x1) << 2) | ((bot & 0xC0) >>> 6);
+		int source = cpu.getLowReg((byte) ((bot & 0x38) >>> 3));
+		//The method will & 0x7 for us
+		cpu.setLowReg(bot, cpu.setSubFlags(source, arg));
 	}
 
 	private void movImm(byte top, byte bot) {
