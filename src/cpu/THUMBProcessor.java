@@ -18,9 +18,9 @@ public class THUMBProcessor implements CPU.IProcessor {
 
 		//From 0x0 to 0x1F (0-31)
 		switch(bit15_to_11) {
-		case 0x0: lsl(top, bot); break; 
-		case 0x1: lsr(top, bot); break;
-		case 0x2: asr(top, bot); break;
+		case 0x0: lslImm(top, bot); break; 
+		case 0x1: lsrImm(top, bot); break;
+		case 0x2: asrImm(top, bot); break;
 		case 0x3: /*Add or Sub*/
 			if ((top & 0x2) == 0) /*Bit 9 CLEAR*/
 				add(top, bot); 
@@ -100,16 +100,62 @@ public class THUMBProcessor implements CPU.IProcessor {
 		}
 	}
 
-	private void lsl(byte top, byte bot) {
-
+	private void lslImm(byte top, byte bot) {
+		//Lower 3 bits of top, top 2 bits of bot 
+		byte offset5 = (byte) (((top & 0x7) << 2) | ((bot & 0xC0) >>> 6));
+		int val = cpu.getLowReg((byte) ((bot & 0x38) >>> 3));
+		if (offset5 != 0) { //Carry not affected by 0
+			//Carry set by the last bit shifted out (=sign of the value shifted one less)
+			cpu.cpsr.carry = ((val << (offset5-1)) < 0);
+			val <<= offset5;
+		}
+		//We don't update V
+		cpu.cpsr.negative = (val < 0);
+		cpu.cpsr.zero = (val == 0);
+		//The method will & 0x7 for us
+		cpu.setLowReg(bot, val);
 	}
 
-	private void lsr(byte top, byte bot){
-
+	private void lsrImm(byte top, byte bot){
+		//Lower 3 bits of top, top 2 bits of bot 
+		byte offset5 = (byte) (((top & 0x7) << 2) | ((bot & 0xC0) >>> 6));
+		int val = cpu.getLowReg((byte) ((bot & 0x38) >>> 3));
+		if (offset5 != 0) {
+			//Carry set by the last bit shifted out (= 0 bit of the source value one less)
+			cpu.cpsr.carry = (((val >>> (offset5 - 1)) & 0x1) != 0);
+			val >>>= offset5;
+		}
+		else {
+			//This is actually LSR #32 (page 13 of ARM pdf), thus carry = sign bit, value becomes 0
+			cpu.cpsr.carry = (val < 0);
+			val = 0;
+		}
+		//We don't update V
+		cpu.cpsr.negative = (val < 0);
+		cpu.cpsr.zero = (val == 0);
+		//The method will & 0x7 for us
+		cpu.setLowReg(bot, val);
 	}
 
-	private void asr(byte top, byte bot) {
-
+	private void asrImm(byte top, byte bot) {
+		//Lower 3 bits of top, top 2 bits of bot 
+		byte offset5 = (byte) (((top & 0x7) << 2) | ((bot & 0xC0) >>> 6));
+		int val = cpu.getLowReg((byte) ((bot & 0x38) >>> 3));
+		if (offset5 != 0) {
+			//Carry set by the last bit shifted out (= 0 bit of the source value one less)
+			cpu.cpsr.carry = (((val >> (offset5 - 1)) & 0x1) != 0);
+			val >>= offset5;
+		}
+		else {
+			//This is actually ASR #32 (page 13 of ARM pdf), thus carry = sign bit, value becomes either all 0's or all 1's
+			cpu.cpsr.carry = (val < 0);
+			val = (val < 0) ? 0xffffffff : 0x0;
+		}
+		//We don't update V
+		cpu.cpsr.negative = (val < 0);
+		cpu.cpsr.zero = (val == 0);
+		//The method will & 0x7 for us
+		cpu.setLowReg(bot, val);
 	}
 
 	private void add(byte top, byte bot) {
@@ -227,29 +273,29 @@ public class THUMBProcessor implements CPU.IProcessor {
 	private void popRegisters(byte top, byte bot) {
 
 	}
-	
+
 	private void storeMult(byte top, byte bot) {
-		
+
 	}
-	
+
 	private void loadMult(byte top, byte bot) {
-		
+
 	}
-	
+
 	private void conditionalBranch(byte top, byte bot) {
-		
+
 	}
-	
+
 	private void softwareInterrupt(int pc, byte val) {
-		
+
 	}
-	
+
 	private void unconditionalBranch(byte top, byte bot) {
-		
+
 	}
-	
+
 	private void longBranch(boolean offsetLow, byte top, byte bot) {
-		
+
 	}
 
 }

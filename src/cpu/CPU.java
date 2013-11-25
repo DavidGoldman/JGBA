@@ -10,6 +10,13 @@ public class CPU {
 		public void execute(int pc);
 	}
 
+	/**
+	 * Register 0-7 are "low" registers and are available in THUMB and ARM mode.
+	 * Registers 8-15 are "high" registers and are available ONLY in ARM mode.
+	 * Register 13 is the stack pointer.
+	 * Register 14 is the link registers.
+	 * Register 15 is the program counter.
+	 */
 	protected final int[][] regs =  {
 			{ 0 }, //r0
 			{ 0 }, //r1
@@ -42,8 +49,18 @@ public class CPU {
 		cpsr = new CPSR();
 	}
 
-	protected int getReg(int num) {
-		return 0;
+	/**
+	 * Low registers cannot be banked, so no mode checking is done.
+	 * 
+	 * @param reg Register to access, ANDED with 0x7
+	 * @return The value in (reg & 0x7)
+	 */
+	protected int getLowReg(byte reg) {
+		return regs[reg & 0x7][0];
+	}
+	
+	protected void setLowReg(byte reg, int value) {
+		regs[reg & 0x7][0] = value;
 	}
 
 	protected int getStatusReg(int num) {

@@ -30,6 +30,7 @@ public class CPSR {
 	protected byte mode; //5 mode bits - Bit 4-0
 	
 	public CPSR() {
+		//TODO Initialize this correctly
 		mode = USER;
 	}
 	
