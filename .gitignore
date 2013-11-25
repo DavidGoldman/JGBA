@@ -1,4 +1,6 @@
-/.settings
-/bin
+# Eclipse specific git ignore
 .project
+bin/**
 .classpath
+.settings/
+
