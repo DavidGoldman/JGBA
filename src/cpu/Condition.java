@@ -82,33 +82,30 @@ public class Condition {
 	 * 
 	 * @param cond Condition byte (0 - 14)
 	 * @param cpsr Status Register
-	 * Bit 31    Bit 30    Bit 29    Bit 28  ...		Bit 0
-	 *    N        Z         C          V
-	 * @return Whether the given condition is true
 	 * @throws IllegalArgumentException When cond is not valid
 	 */
-	public static boolean condition(byte cond, int cpsr) throws IllegalArgumentException {
+	public static boolean condition(byte cond, CPSR cpsr) throws IllegalArgumentException {
 		switch(cond) {
-		case EQ: return (cpsr & 0x40000000) == 0x40000000; //Z set
-		case NE: return (cpsr & 0x40000000) == 0; //Z clear
+		case EQ: return cpsr.zero; //Z set
+		case NE: return !cpsr.zero; //Z clear
 		
-		case CS: return (cpsr & 0x20000000) == 0x20000000; //C set
-		case CC: return (cpsr & 0x20000000) == 0; //C clear
+		case CS: return cpsr.carry; //C set
+		case CC: return !cpsr.carry; //C clear
 		
-		case MI: return (cpsr & 0x80000000) == 0x80000000; //N set
-		case PL: return (cpsr & 0x80000000) == 0; //N clear
+		case MI: return cpsr.negative; //N set
+		case PL: return !cpsr.negative; //N clear
 		
-		case VS: return (cpsr & 0x10000000) == 0x10000000; //V set
-		case VC: return (cpsr & 0x10000000) == 0; //V clear
+		case VS: return cpsr.overflow; //V set
+		case VC: return !cpsr.overflow; //V clear
 		
-		case HI: return (cpsr & 0x20000000) == 0x20000000 && (cpsr & 0x40000000) == 0; //C set AND Z clear
-		case LS: return (cpsr & 0x20000000) == 0 || (cpsr & 0x40000000) == 0x40000000; //C clear OR Z set
+		case HI: return cpsr.carry && !cpsr.zero; //C set AND Z clear
+		case LS: return !cpsr.carry || cpsr.zero; //C clear OR Z set
 		
-		case GE: return (cpsr & 0x80000000) >> 3 == (cpsr & 0x10000000); //N equals V
-		case LT: return (cpsr & 0x80000000) >> 3 != (cpsr & 0x10000000); //N not equal to V
+		case GE: return cpsr.negative == cpsr.overflow; //N equals V
+		case LT: return cpsr.negative != cpsr.overflow; //N not equal to V
 		
-		case GT: return (cpsr & 0x40000000) == 0 && (cpsr & 0x80000000) >> 3 == (cpsr & 0x10000000); //Z clear AND (N equals V)
-		case LE: return (cpsr & 0x40000000) == 0x40000000 || (cpsr & 0x80000000) >> 3 != (cpsr & 0x10000000); //Z set OR (Not equal to V)
+		case GT: return !cpsr.zero && cpsr.negative == cpsr.overflow; //Z clear AND (N equals V)
+		case LE: return cpsr.zero || cpsr.negative != cpsr.overflow; //Z set OR (Not equal to V)
 		
 		case AL: return true;
 		default:

@@ -10,7 +10,7 @@ public class CPU {
 		public void execute(int pc);
 	}
 
-	private final int[][] regs =  {
+	protected final int[][] regs =  {
 			{ 0 }, //r0
 			{ 0 }, //r1
 			{ 0 }, //r2
@@ -29,15 +29,17 @@ public class CPU {
 			{ 0 } //r15 (PC) - PROGRAM COUNTER
 	};
 	
-	private final int[] spsr = { 0, 0, 0, 0, 0 }; // SPSR (Saved Program Status Register - PRIVELEGED ONLY): SPSR_fiq, SPSR_svc, SPSR_abt, SPSR_irq, SPSR_und
+	protected final int[] spsr = { 0, 0, 0, 0, 0 }; // SPSR (Saved Program Status Register - PRIVELEGED ONLY): SPSR_fiq, SPSR_svc, SPSR_abt, SPSR_irq, SPSR_und
 
 	private final ARMProcessor arm;
 	private final THUMBProcessor thumb;
-	protected int cpsr; //CPSR (CONDITION CODE FLAGS AND CURRENT MODE BITS)
+	
+	protected final CPSR cpsr; //CPSR (CONDITION CODE FLAGS AND CURRENT MODE BITS)
 	
 	public CPU() {
 		arm = new ARMProcessor(this);
 		thumb = new THUMBProcessor(this);
+		cpsr = new CPSR();
 	}
 
 	protected int getReg(int num) {
