@@ -38,7 +38,7 @@ public class ARMProcessor implements CPU.IProcessor {
 				if ((bot & 0x60) == 0) { /*Bit 6,5 are CLEAR*/
 					if (bit27_to_24 == 0 && (bit23_to_20 & 0xC) == 0) /*Bit 27-22 are all CLEAR*/
 						multiply(midTop, midBot, bot);
-					if (bit27_to_24 == 0 && (bit23_to_20 & 0xF) == 0x8) /*Bit 27-24 are all CLEAR, bit 23 is SET*/
+					if (bit27_to_24 == 0 && (bit23_to_20 & 0x8) == 0x8) /*Bit 27-24 are all CLEAR, bit 23 is SET*/
 						multiplyLong(midTop, midBot, bot);
 					if (bit27_to_24 == 1 && (bit23_to_20 & 0xB) == 0 && (midBot & 0xF) == 0) /*Bit 27-25 CLEAR, Bit 24 SET, BIT 23,21,20 CLEAR, Bit 11-8 CLEAR*/
 						singleDataSwap(midTop, midBot, bot);
