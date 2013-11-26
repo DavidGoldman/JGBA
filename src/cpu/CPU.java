@@ -1,7 +1,7 @@
 package cpu;
 
 public class CPU {
-	
+
 	public static interface IProcessor {
 		/**
 		 * Execute an operation.
@@ -35,14 +35,14 @@ public class CPU {
 			{ 0, 0, 0, 0, 0, 0 }, //r14 (LR) - LINK REG, r14_fiq, r14_svc, r14_abt, r14_irq, r14_und
 			{ 0 } //r15 (PC) - PROGRAM COUNTER
 	};
-	
+
 	protected final int[] spsr = { 0, 0, 0, 0, 0 }; // SPSR (Saved Program Status Register - PRIVELEGED ONLY): SPSR_fiq, SPSR_svc, SPSR_abt, SPSR_irq, SPSR_und
 
 	private final ARMProcessor arm;
 	private final THUMBProcessor thumb;
-	
+
 	protected final CPSR cpsr; //CPSR (CONDITION CODE FLAGS AND CURRENT MODE BITS)
-	
+
 	public CPU() {
 		arm = new ARMProcessor(this);
 		thumb = new THUMBProcessor(this);
@@ -58,17 +58,17 @@ public class CPU {
 	protected int getLowReg(byte reg) {
 		return regs[reg & 0x7][0];
 	}
-	
+
 	protected void setLowReg(byte reg, int value) {
 		regs[reg & 0x7][0] = value;
 	}
-	
+
 	protected int setAddFlags(int op1, int op2) {
 		int result = op1 + op2;
 		//Carry if unsigned value has Bit 32 SET
 		cpsr.carry = ((op1 & 0xffffffffL) + (op2 & 0xffffffffL) > 0xffffffffL);
 		//Overflow if two positives result in a negative or two negatives result in a positive
-		cpsr.overflow = (op1 > 0 && op2 > 0 && result < 0) || (op1 < 0 && op2 < 0 && result >= 0);
+		cpsr.overflow = (op1 >= 0 && op2 >= 0 && result < 0) || (op1 < 0 && op2 < 0 && result >= 0);
 		cpsr.negative = (result < 0);
 		cpsr.zero = (result == 0);
 		return result;
@@ -79,7 +79,30 @@ public class CPU {
 		//Odd, but must be true because a CMP calls this and CS (Carry SET) is unsigned higher or same o.0
 		cpsr.carry = ((op1 & 0xffffffffL) >= (op2 & 0xffffffffL));
 		//Overflow if two positives result in a negative or two negatives result in a positive
-		cpsr.overflow = (op1 > 0 && op2 < 0 && result < 0) || (op1 < 0 && op2 > 0 && result >= 0);
+		cpsr.overflow = (op1 >= 0 && op2 <= 0 && result < 0) || (op1 < 0 && op2 > 0 && result >= 0);
+		cpsr.negative = (result < 0);
+		cpsr.zero = (result == 0);
+		return result;
+	}
+
+	protected int setAddCarryFlags(int op1, int op2) {
+		int result = op1 + op2 + ((cpsr.carry) ? 1 : 0);
+		//Carry if unsigned value has Bit 32 SET
+		cpsr.carry = ((op1 & 0xffffffffL) + (op2 & 0xffffffffL) + ((cpsr.carry) ? 1 : 0) > 0xffffffffL);
+		//Overflow if two positives result in a negative or two negatives result in a positive
+		cpsr.overflow = (op1 >= 0 && op2 >= 0 && result < 0) || (op1 < 0 && op2 < 0 && result >= 0);
+		cpsr.negative = (result < 0);
+		cpsr.zero = (result == 0);
+		return result;
+	}
+
+	protected int setSubCarryFlags(int op1, int op2) {
+		//SBC Rd, Rs (Rd = Rd - Rs - NOT C-bit)
+		int result = op1 - op2 - ((cpsr.carry) ? 0 : 1);
+		//Unsigned higher or same including carry
+		cpsr.carry = ((op1 & 0xffffffffL) - (op2 & 0xffffffffL) - ((cpsr.carry) ? 0 : 1) >= 0);
+		//Overflow if two positives result in a negative or two negatives result in a positive
+		cpsr.overflow = (op1 >= 0 && op2 <= 0 && result < 0) || (op1 < 0 && op2 > 0 && result >= 0);
 		cpsr.negative = (result < 0);
 		cpsr.zero = (result == 0);
 		return result;

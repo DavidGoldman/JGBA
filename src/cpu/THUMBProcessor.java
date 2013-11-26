@@ -1,5 +1,8 @@
 package cpu;
 
+import static cpu.THUMBALUOpCode.*;
+import utils.ByteUtils;
+
 public class THUMBProcessor implements CPU.IProcessor {
 
 	private final CPU cpu;
@@ -115,7 +118,6 @@ public class THUMBProcessor implements CPU.IProcessor {
 			cpu.cpsr.carry = ((val << (offset5-1)) < 0);
 			val <<= offset5;
 		}
-		//We don't update V
 		cpu.cpsr.negative = (val < 0);
 		cpu.cpsr.zero = (val == 0);
 		//The method will & 0x7 for us
@@ -128,7 +130,7 @@ public class THUMBProcessor implements CPU.IProcessor {
 		int val = cpu.getLowReg((byte) ((bot & 0x38) >>> 3));
 		if (offset5 != 0) {
 			//Carry set by the last bit shifted out (= 0 bit of the value shifted one less)
-			cpu.cpsr.carry = (((val >>> (offset5 - 1)) & 0x1) != 0);
+			cpu.cpsr.carry = (((val >>> (offset5 - 1)) & 0x1) == 0x1);
 			val >>>= offset5;
 		}
 		else {
@@ -136,7 +138,6 @@ public class THUMBProcessor implements CPU.IProcessor {
 			cpu.cpsr.carry = (val < 0);
 			val = 0;
 		}
-		//We don't update V
 		cpu.cpsr.negative = (val < 0);
 		cpu.cpsr.zero = (val == 0);
 		//The method will & 0x7 for us
@@ -149,15 +150,14 @@ public class THUMBProcessor implements CPU.IProcessor {
 		int val = cpu.getLowReg((byte) ((bot & 0x38) >>> 3));
 		if (offset5 != 0) {
 			//Carry set by the last bit shifted out (= 0 bit of the value shifted one less)
-			cpu.cpsr.carry = (((val >> (offset5 - 1)) & 0x1) != 0);
+			cpu.cpsr.carry = (((val >> (offset5 - 1)) & 0x1) == 0x1);
 			val >>= offset5;
 		}
 		else {
 			//This is actually ASR #32 (page 13 of ARM pdf), thus carry = sign bit, value becomes either all 0's or all 1's
 			cpu.cpsr.carry = (val < 0);
-			val = (val < 0) ? 0xffffffff : 0x0;
+			val >>= 31;
 		}
-		//We don't update V
 		cpu.cpsr.negative = (val < 0);
 		cpu.cpsr.zero = (val == 0);
 		//The method will & 0x7 for us
@@ -225,11 +225,241 @@ public class THUMBProcessor implements CPU.IProcessor {
 	}
 
 	private void aluOp(byte top, byte bot) {
+		//Op is the last 2 bits of top and the first two bits of bot
+		byte op = (byte) (((top & 0x3) << 2) | ((bot & 0xC0) >>> 6));
+		byte rs = (byte) ((bot & 0x38) >>> 3);
+		byte rd = (byte) (bot & 0x7);
+		switch(op) {
+		case AND: and(rd, rs); break;
+		case EOR: eor(rd, rs); break;
+		case LSL: lsl(rd, rs); break;
+		case LSR: lsr(rd, rs); break;
+		case ASR: asr(rd, rs); break;
+		case ADC: adc(rd, rs); break;
+		case SBC: sbc(rd, rs); break;
+		case ROR: ror(rd, rs); break;
+		case TST: tst(rd, rs); break;
+		case NEG: neg(rd, rs); break;
+		case CMP: cmp(rd, rs); break;
+		case CMN: cmn(rd, rs); break;
+		case ORR: orr(rd, rs); break;
+		case MUL: mul(rd, rs); break;
+		case BIC: bic(rd, rs); break;
+		case MVN: mvn(rd, rs); break;
+		default: throw new RuntimeException("Should not occur! OP=" + ByteUtils.hex(op));
+		}
+	}
 
+	/**
+	 * AND Rd, Rs (Rd = Rd & Rs)
+	 */
+	private void and(byte rd, byte rs) {
+		int val = cpu.getLowReg(rd) & cpu.getLowReg(rs);
+		cpu.cpsr.negative = (val < 0);
+		cpu.cpsr.zero = (val == 0);
+		cpu.setLowReg(rd, val);
+	}
+	
+	/**
+	 * EOR Rd, Rs (Rd = Rd ^ Rs)
+	 */
+	private void eor(byte rd, byte rs) {
+		int val = cpu.getLowReg(rd) ^ cpu.getLowReg(rs);
+		cpu.cpsr.negative = (val < 0);
+		cpu.cpsr.zero = (val == 0);
+		cpu.setLowReg(rd, val);
+	}
+	
+	/**
+	 * LSL Rd, Rs (Rd = Rd << Rs)
+	 */
+	private void lsl(byte rd, byte rs) {
+		int val = cpu.getLowReg(rd);
+		int shift = cpu.getLowReg(rs) & 0xFF; //Only the least significant byte is used to determine the shift
+		if (shift > 0) { //Carry not affected by 0 shift
+			if (shift < 32) { //Shifts <32 are fine, carry is the last bit shifted out
+				cpu.cpsr.carry = (val << (shift-1) < 0);
+				val <<= shift;
+			}
+			else if (shift == 32) { //We do this manually b/c in Java, shifts are % #bits, carry is the 0 bit
+				cpu.cpsr.carry = ((val & 0x1) == 0x1); 
+				val = 0;
+			}
+			else { //Shift >32, 0's!
+				cpu.cpsr.carry = false;
+				val = 0;
+			}
+		}
+		cpu.cpsr.negative = (val < 0);
+		cpu.cpsr.zero = (val == 0);
+		cpu.setLowReg(rd, val);
+	}
+	
+	/**
+	 * LSR Rd, Rs (Rd = Rd >>> Rs)
+	 * LSR = Logical Shift Right
+	 */
+	private void lsr(byte rd, byte rs) {
+		int val = cpu.getLowReg(rd);
+		int shift = cpu.getLowReg(rs) & 0xFF; //Only the least significant byte is used to determine the shift
+		if (shift > 0) {
+			if (shift < 32) { //Shifts <32 are fine, carry is the last bit shifted out
+				cpu.cpsr.carry = (((val >>> (shift - 1)) & 0x1) == 0x1);
+				val >>>= shift;
+			}
+			else if (shift == 32) { //We do this manually b/c in Java, shifts are % #bits, carry is sign bit
+				cpu.cpsr.carry = (val < 0); 
+				val = 0;
+			}
+			else { //Shift >32, 0's!
+				cpu.cpsr.carry = false;
+				val = 0;
+			}
+		}
+		cpu.cpsr.negative = (val < 0);
+		cpu.cpsr.zero = (val == 0);
+		cpu.setLowReg(rd, val);
+	}
+	
+	/**
+	 * ASR Rd, Rs (Rd = Rd >> Rs)
+	 * ASR = Arithmetic (signed) Shift Right
+	 */
+	private void asr(byte rd, byte rs) {
+		int val = cpu.getLowReg(rd);
+		int shift = cpu.getLowReg(rs) & 0xFF; //Only the least significant byte is used to determine the shift
+		if (shift > 0) {
+			if (shift < 32) { //Shifts <32 are fine, carry is the last bit shifted out
+				cpu.cpsr.carry = (((val >> (shift - 1)) & 0x1) == 0x1);
+				val >>= shift;
+			}
+			else { //Shift >=32, carry is equal to the sign bit, value becomes either all 1's or 0's
+				cpu.cpsr.carry = (val < 0);
+				val >>= 31;
+			}
+		}
+		cpu.cpsr.negative = (val < 0);
+		cpu.cpsr.zero = (val == 0);
+		cpu.setLowReg(rd, val);
+	}
+	
+	/**
+	 * ADC Rd, Rs (Rd = Rd + Rs + C-bit)
+	 */
+	private void adc(byte rd, byte rs) {
+		cpu.setLowReg(rd, cpu.setAddCarryFlags(cpu.getLowReg(rd), cpu.getLowReg(rs)));
+	}
+	
+	/**
+	 * SBC Rd, Rs (Rd = Rd - Rs - NOT C-bit)
+	 */
+	private void sbc(byte rd, byte rs) {
+		cpu.setLowReg(rd, cpu.setSubCarryFlags(cpu.getLowReg(rd), cpu.getLowReg(rs)));
+	}
+	
+	/**
+	 * ROR Rd, Rs (Rd = Rd ROR Rs)
+	 * ROR = ROtate Right
+	 */
+	private void ror(byte rd, byte rs) {
+		int val = cpu.getLowReg(rd);
+		int rotate = cpu.getLowReg(rs) & 0xFF; //Only the least significant byte is used to determine the rotate
+		if (rotate > 0) {
+			rotate = rotate & 0x1F; //If rotate >32, we subtract 32 until in range [0-31] -> same as & 0x1F (31)
+			if (rotate > 0) { //Carry is the last bit rotated out
+				cpu.cpsr.carry = (((val >>> (rotate - 1)) & 0x1) == 0x1);
+				//Val is the remaining bits from the shift and the removed bits shifted to the left
+				val = (val >>> rotate) | (val << (32-rotate));
+			}
+			else //ROR 32, carry equal to sign bit
+				cpu.cpsr.carry = (val < 0);
+		}
+		cpu.cpsr.negative = (val < 0);
+		cpu.cpsr.zero = (val == 0);
+		cpu.setLowReg(rd, val);
+	}
+	
+	/**
+	 * TST Rd, Rs (Set condition codes on Rd & Rs)
+	 */
+	private void tst(byte rd, byte rs) {
+		int val = cpu.getLowReg(rd) & cpu.getLowReg(rs);
+		cpu.cpsr.negative = (val < 0);
+		cpu.cpsr.zero = (val == 0);
+	}
+	
+	/**
+	 * NEG Rd, Rs (Rd = -Rs)
+	 */
+	private void neg(byte rd, byte rs) {
+		int val = cpu.getLowReg(rs);
+		//Because of the two's complement system, 0 will overflow back to 0
+		//and Integer.MIN_VALUE will still be Integer.MIN_VALUE, which is marked as an overflow condition.
+		//Therefore, this is identical to cpu.cpsr.overflow = (val == -val);
+		cpu.cpsr.overflow = ((val ^ -val) == 0);
+		val = -val;
+		cpu.cpsr.negative = (val < 0);
+		cpu.cpsr.zero = (val == 0);
+		cpu.setLowReg(rd, val);
+	}
+	
+	/**
+	 * CMP Rd, Rs (Set condition codes on Rd - Rs)
+	 */
+	private void cmp(byte rd, byte rs) {
+		cpu.setSubFlags(cpu.getLowReg(rd), cpu.getLowReg(rs));
+	}
+	
+	/**
+	 * CMN Rd, Rs (Set condition codes on Rd + Rs)
+	 */
+	private void cmn(byte rd, byte rs) {
+		cpu.setAddFlags(cpu.getLowReg(rd), cpu.getLowReg(rs));
+	}
+	
+	/**
+	 * ORR Rd, Rs (Rd = Rd | Rs)
+	 */
+	private void orr(byte rd, byte rs) {
+		int val = cpu.getLowReg(rd) | cpu.getLowReg(rs);
+		cpu.cpsr.negative = (val < 0);
+		cpu.cpsr.zero = (val == 0);
+		cpu.setLowReg(rd, val);
+	}
+	
+	/**
+	 * MUL Rd, Rs (Rd = Rd * Rs)
+	 */
+	private void mul(byte rd, byte rs) {
+		int val = cpu.getLowReg(rd) * cpu.getLowReg(rs);
+		cpu.cpsr.carry = false;
+		cpu.cpsr.negative = (val < 0);
+		cpu.cpsr.zero = (val == 0);
+		cpu.setLowReg(rd, val);
+	}
+	
+	/**
+	 * BIC Rd, Rs (Rd = Rd AND NOT Rs)
+	 */
+	private void bic(byte rd, byte rs) {
+		int val = cpu.getLowReg(rd) & ~cpu.getLowReg(rs);
+		cpu.cpsr.negative = (val < 0);
+		cpu.cpsr.zero = (val == 0);
+		cpu.setLowReg(rd, val);
+	}
+	
+	/**
+	 * MVN Rd, Rs (Rd = NOT Rs)
+	 */
+	private void mvn(byte rd, byte rs) {
+		int val = ~cpu.getLowReg(rs);
+		cpu.cpsr.negative = (val < 0);
+		cpu.cpsr.zero = (val == 0);
+		cpu.setLowReg(rd, val);
 	}
 
 	private void hiRegOpsBranchX(byte top, byte bot) {
-
+		
 	}
 
 	private void pcRelativeLoad(byte top, byte bot) {

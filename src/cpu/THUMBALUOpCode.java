@@ -91,4 +91,26 @@ public class THUMBALUOpCode {
 	 * MVN Rd, Rs (Rd = NOT Rs)
 	 */
 	public static final byte MVN = 15;
+	
+	public static String toString(byte op) {
+		switch(op) {
+		case AND: return "AND";
+		case EOR: return "EOR";
+		case LSL: return "LSL";
+		case LSR: return "LSR";
+		case ASR: return "ASR";
+		case ADC: return "ADC";
+		case SBC: return "SBC";
+		case ROR: return "ROR";
+		case TST: return "TST";
+		case NEG: return "NEG";
+		case CMP: return "CMP";
+		case CMN: return "CMN";
+		case ORR: return "ORR";
+		case MUL: return "MUL";
+		case BIC: return "BIC";
+		case MVN: return "MVN";
+		default: return "UNDEFINED";
+		}
+	}
 }
