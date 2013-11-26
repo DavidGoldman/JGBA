@@ -33,10 +33,10 @@ public class THUMBProcessor implements CPU.IProcessor {
 				else
 					subImm3(top, bot);
 			break;
-		case 0x4: movImm(top, bot); break;
-		case 0x5: cmpImm(top, bot); break;
-		case 0x6: addImm(top, bot); break;
-		case 0x7: subImm(top, bot); break;
+		case 0x4: movImm8(top, bot); break;
+		case 0x5: cmpImm8(top, bot); break;
+		case 0x6: addImm8(top, bot); break;
+		case 0x7: subImm8(top, bot); break;
 		case 0x8:
 			if ((top & 0x4) == 0) /*Bit 10 CLEAR*/
 				aluOp(top, bot); 
@@ -127,7 +127,7 @@ public class THUMBProcessor implements CPU.IProcessor {
 		byte offset5 = (byte) (((top & 0x7) << 2) | ((bot & 0xC0) >>> 6));
 		int val = cpu.getLowReg((byte) ((bot & 0x38) >>> 3));
 		if (offset5 != 0) {
-			//Carry set by the last bit shifted out (= 0 bit of the source value one less)
+			//Carry set by the last bit shifted out (= 0 bit of the value shifted one less)
 			cpu.cpsr.carry = (((val >>> (offset5 - 1)) & 0x1) != 0);
 			val >>>= offset5;
 		}
@@ -148,7 +148,7 @@ public class THUMBProcessor implements CPU.IProcessor {
 		byte offset5 = (byte) (((top & 0x7) << 2) | ((bot & 0xC0) >>> 6));
 		int val = cpu.getLowReg((byte) ((bot & 0x38) >>> 3));
 		if (offset5 != 0) {
-			//Carry set by the last bit shifted out (= 0 bit of the source value one less)
+			//Carry set by the last bit shifted out (= 0 bit of the value shifted one less)
 			cpu.cpsr.carry = (((val >> (offset5 - 1)) & 0x1) != 0);
 			val >>= offset5;
 		}
@@ -196,20 +196,32 @@ public class THUMBProcessor implements CPU.IProcessor {
 		cpu.setLowReg(bot, cpu.setSubFlags(source, arg));
 	}
 
-	private void movImm(byte top, byte bot) {
-
+	private void movImm8(byte top, byte offset8) {
+		cpu.cpsr.negative = false;
+		cpu.cpsr.zero = (offset8 == 0);
+		//The method will & 0x7 for us, but we need to & 0xFF instead of implicit widening
+		cpu.setLowReg(top, offset8 & 0xFF);
 	}
 
-	private void cmpImm(byte top, byte bot) {
-
+	private void cmpImm8(byte top, byte offset8) {
+		//The method will & 0x7 for us
+		int val = cpu.getLowReg(top);
+		//Need to & 0xFF instead of implicit widening
+		cpu.setSubFlags(val, offset8 & 0xFF);
 	}
 
-	private void addImm(byte top, byte bot) {
-
+	private void addImm8(byte top, byte offset8) {
+		//The method will & 0x7 for us
+		int val = cpu.getLowReg(top);
+		//The method will & 0x7 for us, but we need to & 0xFF instead of implicit widening
+		cpu.setLowReg(top, cpu.setAddFlags(val, offset8 & 0xFF));
 	}
 
-	private void subImm(byte top, byte bot) {
-
+	private void subImm8(byte top, byte offset8) {
+		//The method will & 0x7 for us
+		int val = cpu.getLowReg(top);
+		//The method will & 0x7 for us, but we need to & 0xFF instead of implicit widening
+		cpu.setLowReg(top, cpu.setSubFlags(val, offset8 & 0xFF));
 	}
 
 	private void aluOp(byte top, byte bot) {
