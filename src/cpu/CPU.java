@@ -101,6 +101,10 @@ public class CPU {
 	protected int getSP() {
 		return regs[13][cpsr.mapHighRegister((byte) 5)];
 	}
+	
+	protected void setSP(int val) {
+		regs[13][cpsr.mapHighRegister((byte) 5)] = val;
+	}
 
 	protected int setAddFlags(int op1, int op2) {
 		int result = op1 + op2;

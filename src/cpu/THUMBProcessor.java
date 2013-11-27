@@ -79,8 +79,8 @@ public class THUMBProcessor implements CPU.IProcessor {
 		case 0x11: ldrhImm(top, bot); break;
 		case 0x12: spRelativeStore(top, bot); break;
 		case 0x13: spRelativeLoad(top, bot); break;
-		case 0x14: loadAddress(false, top, bot); break;
-		case 0x15: loadAddress(true, top, bot); break;
+		case 0x14: addPC(top, bot); break;
+		case 0x15: addSP(top, bot); break;
 		case 0x16:
 			if ((top & 0x7) == 0) /*Bit 10-8 CLEAR*/
 				addOffsetToSP(bot); 
@@ -688,12 +688,22 @@ public class THUMBProcessor implements CPU.IProcessor {
 		cpu.setLowReg(top, cpu.read32(address));
 	}
 
-	private void loadAddress(boolean sp, byte top, byte bot) {
-		//If sp is false, we use pc instead
+	private void addPC(byte top, byte bot) {
+		//Bit 1 of the PC is forced to 0 to ensure it is word aligned, bot is actually an unsigned 10 bit value
+		cpu.setLowReg(top, (cpu.getPC() & 0xFFFFFFFD) + ((bot & 0xFF) << 2));
 	}
 
+	private void addSP(byte top, byte bot) {
+		//bot is actually an unsigned 10 bit value
+		cpu.setLowReg(top, cpu.getSP() + ((bot & 0xFF) << 2));
+	}
+	
 	private void addOffsetToSP(byte bot) { 
-
+		//Bit 7 is sign bit, bit 6-0 is shifted by 2 (9 bit constant)
+		if ((bot & 0x80) == 0) //Pos/Add
+			cpu.setSP(cpu.getSP() + ((bot & 0x7F) << 2));
+		else
+			cpu.setSP(cpu.getSP() - ((bot & 0x7F) << 2));
 	}
 
 	private void pushRegisters(byte top, byte bot) {
