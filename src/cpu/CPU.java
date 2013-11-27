@@ -12,8 +12,8 @@ public class CPU {
 	}
 
 	/**
-	 * Register 0-7 are "low" registers and are available in THUMB and ARM mode.
-	 * Registers 8-15 are "high" registers and are available ONLY in ARM mode.
+	 * Register 0-7 are "low" registers.
+	 * Registers 8-15 are "high" registers.
 	 * Register 13 is the stack pointer.
 	 * Register 14 is the link registers.
 	 * Register 15 is the program counter.
@@ -32,8 +32,8 @@ public class CPU {
 			{ 0, 0 }, //r10, r10_fiq
 			{ 0, 0 }, //r11, r11_fiq
 			{ 0, 0 }, //r12, r12_fiq
-			{ 0, 0, 0, 0, 0, 0 }, //r13 (SP) - STACK PNTR, r13_fiq, r13_svc, r13_abt, r13_irq, r13_und
-			{ 0, 0, 0, 0, 0, 0 }, //r14 (LR) - LINK REG, r14_fiq, r14_svc, r14_abt, r14_irq, r14_und
+			{ 0, 0, 0, 0, 0, 0 }, //r13 (SP) - STACK PNTR, r13_fiq, r13_irq, r13_svc, r13_abt, r13_und
+			{ 0, 0, 0, 0, 0, 0 }, //r14 (LR) -   LINK REG, r14_fiq, r14_irq, r14_svc, r14_abt, r14_und
 			{ 0 } //r15 (PC) - PROGRAM COUNTER
 	};
 
