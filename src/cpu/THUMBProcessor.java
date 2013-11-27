@@ -594,7 +594,7 @@ public class THUMBProcessor implements CPU.IProcessor {
 	private void ldrb(byte top, byte bot) {
 		//Pre-indexed byte load, get address from reg (bit 5-3) and reg (bit 8-6)
 		int address = cpu.getLowReg((byte) ((bot & 0x38) >> 3)) + cpu.getLowReg((byte) (((top & 0x1) << 2) | ((bot & 0xC0) >>> 6)));
-		//Load the low byte at [address] into the reg (bot & 0x7, implicit in getLowReg)
+		//Load the byte at [address] into the reg (bot & 0x7, implicit in getLowReg)
 		cpu.setLowReg(bot, cpu.read8(address));
 	}
 
@@ -608,7 +608,7 @@ public class THUMBProcessor implements CPU.IProcessor {
 	private void ldsb(byte top, byte bot) {
 		//Sign extended byte load, get address from reg (bit 5-3) and reg (bit 8-6)
 		int address = cpu.getLowReg((byte) ((bot & 0x38) >> 3)) + cpu.getLowReg((byte) (((top & 0x1) << 2) | ((bot & 0xC0) >>> 6)));
-		//Load the low byte at [address] into the reg (bot & 0x7, implicit in getLowReg)
+		//Load the byte at [address] into the reg (bot & 0x7, implicit in getLowReg)
 		//We sign extend by shifting it left 24 then ASR-24 
 		cpu.setLowReg(bot, (cpu.read8(address) << 24) >> 24);
 	}
@@ -629,19 +629,35 @@ public class THUMBProcessor implements CPU.IProcessor {
 	}
 
 	private void strImm(byte top, byte bot) {
-
+		//Address is the sum of the immediate5 (which is actually immedate7) and value in Rb
+		//Offset7 = (Bit 10-6) << 2, Rb = bit 5-3
+		int address = ((((top & 0x7) << 2) | ((bot & 0xC0) >>> 6)) << 2) + cpu.getLowReg((byte) ((bot & 0x38) >> 3));
+		//Store the value in the reg (bot & 0x7, implicit in getLowReg) at [address]
+		cpu.write32(address, cpu.getLowReg(bot));
 	}
 
 	private void strbImm(byte top, byte bot) {
-
+		//Address is the sum of the immediate5 and value in Rb
+		//Offset5 = Bit 10-6, Rb = bit 5-3
+		int address = (((top & 0x7) << 2) | ((bot & 0xC0) >>> 6)) + cpu.getLowReg((byte) ((bot & 0x38) >> 3));
+		//Store the low byte in the reg (bot & 0x7, implicit in getLowReg) at [address]
+		cpu.write8(address, cpu.getLowReg(bot));
 	}
 
 	private void ldrImm(byte top, byte bot) {
-
+		//Address is the sum of the immediate5 (which is actually immedate7) and value in Rb
+		//Offset7 = (Bit 10-6) << 2, Rb = bit 5-3
+		int address = ((((top & 0x7) << 2) | ((bot & 0xC0) >>> 6)) << 2) + cpu.getLowReg((byte) ((bot & 0x38) >> 3));
+		//Load the value at [address] into the reg (bot & 0x7, implicit in getLowReg)
+		cpu.setLowReg(bot, cpu.read32(address));
 	}
 
 	private void ldrbImm(byte top, byte bot) {
-
+		//Address is the sum of the immediate5 and value in Rb
+		//Offset5 = Bit 10-6, Rb = bit 5-3
+		int address = (((top & 0x7) << 2) | ((bot & 0xC0) >>> 6)) + cpu.getLowReg((byte) ((bot & 0x38) >> 3));
+		//Load the byte at [address] into the reg (bot & 0x7, implicit in getLowReg)
+		cpu.setLowReg(bot, cpu.read8(address));
 	}
 
 	private void storeHWImm(byte top, byte bot) {
