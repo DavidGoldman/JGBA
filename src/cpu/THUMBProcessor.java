@@ -459,7 +459,108 @@ public class THUMBProcessor implements CPU.IProcessor {
 	}
 
 	private void hiRegOpsBranchX(byte top, byte bot) {
-		
+		boolean high1 = (bot & 0x80) == 0x80; //Bit 7
+		boolean high2 = (bot & 0x40) == 0x40; //Bit 6
+		byte source = (byte) ((bot & 0x38) >>> 3); //Bit 5 - 3
+		byte dest = (byte) (bot & 0x7); //Bit 2 - 0
+		switch(top & 0x3) { //Op is bit 9-8
+		case 0x0:
+			if (high1 && high2)
+				addHH(dest, source);
+			else if (high1)
+				addHL(dest, source);
+			else if (high2)
+				addLH(dest, source);
+			else
+				; //TODO Add undefined instruction trap here?
+			break;
+		case 0x1:
+			if (high1 && high2)
+				cmpHH(dest, source);
+			else if (high1)
+				cmpHL(dest, source);
+			else if (high2)
+				cmpLH(dest, source);
+			else
+				; //TODO Add undefined instruction trap here?
+			break;
+		case 0x2:
+			if (high1 && high2)
+				movHH(dest, source);
+			else if (high1)
+				movHL(dest, source);
+			else if (high2)
+				movLH(dest, source);
+			else
+				; //TODO Add undefined instruction trap here?
+			break;
+		case 0x3:
+			if (high1)
+				; //TODO Add undefined instruction trap here?
+			if (high2)
+				branchXLow(source);
+			else
+				branchXHigh(source);
+			break;
+		}
+	}
+	
+	private void addHH(byte hd, byte hs) {
+		cpu.setHighReg(hd, cpu.setAddFlags(cpu.getHighReg(hd), cpu.getHighReg(hs)));
+	}
+	
+	private void addHL(byte hd, byte rs) {
+		cpu.setHighReg(hd, cpu.setAddFlags(cpu.getHighReg(hd), cpu.getLowReg(rs)));
+	}
+	
+	private void addLH(byte rd, byte hs) {
+		cpu.setLowReg(rd, cpu.setAddFlags(cpu.getLowReg(rd), cpu.getHighReg(hs)));
+	}
+	
+	private void cmpHH(byte hd, byte hs) {
+		cpu.setSubFlags(cpu.getHighReg(hd), cpu.getHighReg(hs));
+	}
+	
+	private void cmpHL(byte hd, byte rs) {
+		cpu.setSubFlags(cpu.getHighReg(hd), cpu.getLowReg(rs));
+	}
+	
+	private void cmpLH(byte rd, byte hs) {
+		cpu.setSubFlags(cpu.getLowReg(rd), cpu.getHighReg(hs));
+	}
+	
+	private void movHH(byte hd, byte hs) {
+		cpu.setHighReg(hd, cpu.getHighReg(hs));
+	}
+	
+	private void movHL(byte hd, byte rs) {
+		cpu.setHighReg(hd, cpu.getLowReg(rs));
+	}
+	
+	private void movLH(byte rd, byte hs) {
+		cpu.setLowReg(rd, cpu.getHighReg(hs));
+	}
+	
+	private void branchXLow(byte rs) {
+		int address = cpu.getLowReg(rs);
+		if ((address & 0x1) == 0) { //Swap modes
+			cpu.cpsr.thumb = false;
+			cpu.branch(address & 0xFFFFFFFC); //Word aligned
+		}
+		else {
+			cpu.branch(address & 0xFFFFFFFE); //Halfword aligned
+		}
+	}
+	
+	private void branchXHigh(byte hs) {
+		int address = cpu.getHighReg(hs);
+		if ((address & 0x1) == 0) { //Swap modes
+			cpu.cpsr.thumb = false;
+			cpu.branch(address & 0xFFFFFFFC); //Word aligned
+		}
+		else {
+			cpu.branch(address & 0xFFFFFFFE); //Halfword aligned
+		}
 	}
 
 	private void pcRelativeLoad(byte top, byte bot) {

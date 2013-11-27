@@ -135,6 +135,10 @@ public class CPU {
 		cpsr.zero = (result == 0);
 		return result;
 	}
+	
+	protected void branch(int address) {
+		//TODO
+	}
 
 	protected int getStatusReg(int num) {
 		return 0;
