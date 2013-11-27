@@ -90,6 +90,10 @@ public class CPU {
 		else
 			setHighReg((byte) (reg - 0x8), value);
 	}
+	
+	protected int getPC() {
+		return regs[15][0];
+	}
 
 	protected int setAddFlags(int op1, int op2) {
 		int result = op1 + op2;
@@ -137,6 +141,24 @@ public class CPU {
 	}
 	
 	protected void branch(int address) {
+		//TODO
+	}
+	
+	protected int read32(int address) {
+		//TODO
+		return 0;
+	}
+	
+	protected void write32(int address, int val) {
+		//TODO
+	}
+	
+	protected int read8(int address) {
+		//TODO
+		return 0;
+	}
+	
+	protected void write8(int address, int val) {
 		//TODO
 	}
 

@@ -259,7 +259,7 @@ public class THUMBProcessor implements CPU.IProcessor {
 		cpu.cpsr.zero = (val == 0);
 		cpu.setLowReg(rd, val);
 	}
-	
+
 	/**
 	 * EOR Rd, Rs (Rd = Rd ^ Rs)
 	 */
@@ -269,7 +269,7 @@ public class THUMBProcessor implements CPU.IProcessor {
 		cpu.cpsr.zero = (val == 0);
 		cpu.setLowReg(rd, val);
 	}
-	
+
 	/**
 	 * LSL Rd, Rs (Rd = Rd << Rs)
 	 */
@@ -294,7 +294,7 @@ public class THUMBProcessor implements CPU.IProcessor {
 		cpu.cpsr.zero = (val == 0);
 		cpu.setLowReg(rd, val);
 	}
-	
+
 	/**
 	 * LSR Rd, Rs (Rd = Rd >>> Rs)
 	 * LSR = Logical Shift Right
@@ -320,7 +320,7 @@ public class THUMBProcessor implements CPU.IProcessor {
 		cpu.cpsr.zero = (val == 0);
 		cpu.setLowReg(rd, val);
 	}
-	
+
 	/**
 	 * ASR Rd, Rs (Rd = Rd >> Rs)
 	 * ASR = Arithmetic (signed) Shift Right
@@ -342,21 +342,21 @@ public class THUMBProcessor implements CPU.IProcessor {
 		cpu.cpsr.zero = (val == 0);
 		cpu.setLowReg(rd, val);
 	}
-	
+
 	/**
 	 * ADC Rd, Rs (Rd = Rd + Rs + C-bit)
 	 */
 	private void adc(byte rd, byte rs) {
 		cpu.setLowReg(rd, cpu.setAddCarryFlags(cpu.getLowReg(rd), cpu.getLowReg(rs)));
 	}
-	
+
 	/**
 	 * SBC Rd, Rs (Rd = Rd - Rs - NOT C-bit)
 	 */
 	private void sbc(byte rd, byte rs) {
 		cpu.setLowReg(rd, cpu.setSubCarryFlags(cpu.getLowReg(rd), cpu.getLowReg(rs)));
 	}
-	
+
 	/**
 	 * ROR Rd, Rs (Rd = Rd ROR Rs)
 	 * ROR = ROtate Right
@@ -378,7 +378,7 @@ public class THUMBProcessor implements CPU.IProcessor {
 		cpu.cpsr.zero = (val == 0);
 		cpu.setLowReg(rd, val);
 	}
-	
+
 	/**
 	 * TST Rd, Rs (Set condition codes on Rd & Rs)
 	 */
@@ -387,7 +387,7 @@ public class THUMBProcessor implements CPU.IProcessor {
 		cpu.cpsr.negative = (val < 0);
 		cpu.cpsr.zero = (val == 0);
 	}
-	
+
 	/**
 	 * NEG Rd, Rs (Rd = -Rs)
 	 */
@@ -402,21 +402,21 @@ public class THUMBProcessor implements CPU.IProcessor {
 		cpu.cpsr.zero = (val == 0);
 		cpu.setLowReg(rd, val);
 	}
-	
+
 	/**
 	 * CMP Rd, Rs (Set condition codes on Rd - Rs)
 	 */
 	private void cmp(byte rd, byte rs) {
 		cpu.setSubFlags(cpu.getLowReg(rd), cpu.getLowReg(rs));
 	}
-	
+
 	/**
 	 * CMN Rd, Rs (Set condition codes on Rd + Rs)
 	 */
 	private void cmn(byte rd, byte rs) {
 		cpu.setAddFlags(cpu.getLowReg(rd), cpu.getLowReg(rs));
 	}
-	
+
 	/**
 	 * ORR Rd, Rs (Rd = Rd | Rs)
 	 */
@@ -426,7 +426,7 @@ public class THUMBProcessor implements CPU.IProcessor {
 		cpu.cpsr.zero = (val == 0);
 		cpu.setLowReg(rd, val);
 	}
-	
+
 	/**
 	 * MUL Rd, Rs (Rd = Rd * Rs)
 	 */
@@ -437,7 +437,7 @@ public class THUMBProcessor implements CPU.IProcessor {
 		cpu.cpsr.zero = (val == 0);
 		cpu.setLowReg(rd, val);
 	}
-	
+
 	/**
 	 * BIC Rd, Rs (Rd = Rd AND NOT Rs)
 	 */
@@ -447,7 +447,7 @@ public class THUMBProcessor implements CPU.IProcessor {
 		cpu.cpsr.zero = (val == 0);
 		cpu.setLowReg(rd, val);
 	}
-	
+
 	/**
 	 * MVN Rd, Rs (Rd = NOT Rs)
 	 */
@@ -504,43 +504,43 @@ public class THUMBProcessor implements CPU.IProcessor {
 			break;
 		}
 	}
-	
+
 	private void addHH(byte hd, byte hs) {
 		cpu.setHighReg(hd, cpu.setAddFlags(cpu.getHighReg(hd), cpu.getHighReg(hs)));
 	}
-	
+
 	private void addHL(byte hd, byte rs) {
 		cpu.setHighReg(hd, cpu.setAddFlags(cpu.getHighReg(hd), cpu.getLowReg(rs)));
 	}
-	
+
 	private void addLH(byte rd, byte hs) {
 		cpu.setLowReg(rd, cpu.setAddFlags(cpu.getLowReg(rd), cpu.getHighReg(hs)));
 	}
-	
+
 	private void cmpHH(byte hd, byte hs) {
 		cpu.setSubFlags(cpu.getHighReg(hd), cpu.getHighReg(hs));
 	}
-	
+
 	private void cmpHL(byte hd, byte rs) {
 		cpu.setSubFlags(cpu.getHighReg(hd), cpu.getLowReg(rs));
 	}
-	
+
 	private void cmpLH(byte rd, byte hs) {
 		cpu.setSubFlags(cpu.getLowReg(rd), cpu.getHighReg(hs));
 	}
-	
+
 	private void movHH(byte hd, byte hs) {
 		cpu.setHighReg(hd, cpu.getHighReg(hs));
 	}
-	
+
 	private void movHL(byte hd, byte rs) {
 		cpu.setHighReg(hd, cpu.getLowReg(rs));
 	}
-	
+
 	private void movLH(byte rd, byte hs) {
 		cpu.setLowReg(rd, cpu.getHighReg(hs));
 	}
-	
+
 	private void branchXLow(byte rs) {
 		int address = cpu.getLowReg(rs);
 		if ((address & 0x1) == 0) { //Swap modes
@@ -551,7 +551,7 @@ public class THUMBProcessor implements CPU.IProcessor {
 			cpu.branch(address & 0xFFFFFFFE); //Halfword aligned
 		}
 	}
-	
+
 	private void branchXHigh(byte hs) {
 		int address = cpu.getHighReg(hs);
 		if ((address & 0x1) == 0) { //Swap modes
@@ -563,24 +563,39 @@ public class THUMBProcessor implements CPU.IProcessor {
 		}
 	}
 
-	private void pcRelativeLoad(byte top, byte bot) {
-
+	private void pcRelativeLoad(byte top, byte word8) {
+		//Method will (top & 0x7) for us, but we need to & 0xFF to prevent implicit widening of word8
+		//This loads a word from an address specified as a 	10-bit immediate offset from the PC.
+		//Bit 1 of the PC is forced to 0 to ensure it is word aligned.
+		cpu.setLowReg(top, cpu.read32((cpu.getPC() & 0xFFFFFFFD) + ((word8 & 0xFF) << 2)));
 	}
 
 	private void str(byte top, byte bot) { 
-
+		//Pre-indexed word store, get address from reg (bit 5-3) and reg (bit 8-6)
+		int address = cpu.getLowReg((byte) ((bot & 0x38) >> 3)) + cpu.getLowReg((byte) (((top & 0x1) << 2) | ((bot & 0xC0) >>> 6)));
+		//Store the value in the reg (bot & 0x7, implicit in getLowReg) at [address]
+		cpu.write32(address, cpu.getLowReg(bot));
 	}
 
 	private void strb(byte top, byte bot) {
-
+		//Pre-indexed byte store, get address from reg (bit 5-3) and reg (bit 8-6)
+		int address = cpu.getLowReg((byte) ((bot & 0x38) >> 3)) + cpu.getLowReg((byte) (((top & 0x1) << 2) | ((bot & 0xC0) >>> 6)));
+		//Store the low byte in the reg (bot & 0x7, implicit in getLowReg) at [address]
+		cpu.write8(address, cpu.getLowReg(bot));
 	}
 
 	private void ldr(byte top, byte bot) {
-
+		//Pre-indexed word load, get address from reg (bit 5-3) and reg (bit 8-6)
+		int address = cpu.getLowReg((byte) ((bot & 0x38) >> 3)) + cpu.getLowReg((byte) (((top & 0x1) << 2) | ((bot & 0xC0) >>> 6)));
+		//Load the value at [address] into the reg (bot & 0x7, implicit in getLowReg)
+		cpu.setLowReg(bot, cpu.read32(address));
 	}
 
 	private void ldrb(byte top, byte bot) {
-
+		//Pre-indexed byte load, get address from reg (bit 5-3) and reg (bit 8-6)
+		int address = cpu.getLowReg((byte) ((bot & 0x38) >> 3)) + cpu.getLowReg((byte) (((top & 0x1) << 2) | ((bot & 0xC0) >>> 6)));
+		//Load the low byte at [address] into the reg (bot & 0x7, implicit in getLowReg)
+		cpu.setLowReg(bot, cpu.read8(address));
 	}
 
 	private void storeHW(byte top, byte bot) {
