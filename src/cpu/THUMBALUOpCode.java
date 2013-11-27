@@ -110,7 +110,7 @@ public class THUMBALUOpCode {
 		case MUL: return "MUL";
 		case BIC: return "BIC";
 		case MVN: return "MVN";
-		default: return "UNDEFINED";
+		default: return "INVALID";
 		}
 	}
 }

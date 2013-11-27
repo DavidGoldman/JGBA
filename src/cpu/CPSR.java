@@ -15,6 +15,55 @@ public class CPSR {
 	public static final byte UNDEFINED = 0x1B;
 	public static final byte SYSTEM = 0x1F;
 	
+	public static String modeToString(byte mode) {
+		switch(mode) {
+		case USER: return "USER";
+		case FIQ: return "FIQ";
+		case IRQ: return "IRQ";
+		case SUPERVISOR: return "SUPERVISOR";
+		case ABORT: return "ABORT";
+		case UNDEFINED: return "UNDEFINED";
+		case SYSTEM: return "SYSTEM";
+		default: return "INVALID";
+		}
+	}
+	
+	/**
+	 * Map from (mode & 0xF) to its index for the register banks of r13 and r14.
+	 * Therefore, <ul>
+	 * <li>USER->0</li>
+	 * <li>FIQ->1</li>
+	 * <li>IRQ->2</li>
+	 * <li>SUPERVISOR->3</li>
+	 * <li>ABORT->4</li>
+	 * <li>UNDEFINED->5</li>
+	 * <li>SYSTEM->0</li>
+	 * <li>???->0</li>
+	 * </ul>
+	 */
+	private static final byte[] R13_R14_MAP = { 0, 1, 2, 3, 0, 0, 0, 4, 0, 0, 0, 5, 0, 0, 0, 0 };
+	
+	/** 
+	 * Map from (mode & 0xF) to its index for the register banks of r8-r12.
+	 *  Therefore, <ul>
+	 * <li>USER->0</li>
+	 * <li>FIQ->1</li>
+	 * <li>???->0</li>
+	 * </ul>
+	 */
+	private static final byte[] R8_TO_R12_MAP = { 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+	
+	/**
+	 * Map from (mode & 0xF) to 0 (for the PC).
+	 */
+	private static final byte[] ZERO_MAP = new byte[16]; 
+	
+	/**
+	 * Banked register map.
+	 */
+	private static final byte[][] HIGH_REG_MAP = {
+		R8_TO_R12_MAP, R8_TO_R12_MAP, R8_TO_R12_MAP, R8_TO_R12_MAP, R8_TO_R12_MAP, R13_R14_MAP, R13_R14_MAP, ZERO_MAP
+	};
 	
 	protected boolean negative; //Negative/Less Than - Bit 31
 	protected boolean zero; //Zero - Bit 30
@@ -32,6 +81,10 @@ public class CPSR {
 	public CPSR() {
 		//TODO Initialize this correctly
 		mode = USER;
+	}
+	
+	public int mapHighRegister(byte reg) {
+		return HIGH_REG_MAP[reg & 0x7][mode & 0xF];
 	}
 	
 	public void load(int cpsr) {

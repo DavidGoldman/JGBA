@@ -1,5 +1,6 @@
 package cpu;
 
+//TODO Optimize the banking of registers
 public class CPU {
 
 	public static interface IProcessor {
@@ -31,7 +32,7 @@ public class CPU {
 			{ 0, 0 }, //r10, r10_fiq
 			{ 0, 0 }, //r11, r11_fiq
 			{ 0, 0 }, //r12, r12_fiq
-			{ 0, 0, 0, 0, 0, 0 }, //r13 (SP - STACK PNTR, r13_fiq, r13_svc, r13_abt, r13_irq, r13_und
+			{ 0, 0, 0, 0, 0, 0 }, //r13 (SP) - STACK PNTR, r13_fiq, r13_svc, r13_abt, r13_irq, r13_und
 			{ 0, 0, 0, 0, 0, 0 }, //r14 (LR) - LINK REG, r14_fiq, r14_svc, r14_abt, r14_irq, r14_und
 			{ 0 } //r15 (PC) - PROGRAM COUNTER
 	};
@@ -52,7 +53,7 @@ public class CPU {
 	/**
 	 * Low registers cannot be banked, so no mode checking is done.
 	 * 
-	 * @param reg Register to access, ANDED with 0x7
+	 * @param reg Register to access
 	 * @return The value in (reg & 0x7)
 	 */
 	protected int getLowReg(byte reg) {
@@ -61,6 +62,33 @@ public class CPU {
 
 	protected void setLowReg(byte reg, int value) {
 		regs[reg & 0x7][0] = value;
+	}
+	
+	/**
+	 * Read from a high register, mode checking done because of banking.
+	 * 
+	 * @param reg Register MINUS 8, thus to access register 8, pass in 0
+	 * @return The value in ((reg  & 0x7) + 8) (bank)
+	 */
+	protected int getHighReg(byte reg) {
+		return regs[(reg & 0x7) + 0x8][cpsr.mapHighRegister(reg)];
+	}
+	
+	protected void setHighReg(byte reg, int value) {
+		regs[(reg & 0x7) + 0x8][cpsr.mapHighRegister(reg)] = value;
+	}
+	
+	protected int getReg(byte reg) {
+		reg = (byte) (reg & 0xF);
+		return (reg <= 0x7) ? getLowReg(reg) : getHighReg((byte) (reg - 0x8));
+	}
+	
+	protected void setReg(byte reg, int value) {
+		reg = (byte) (reg & 0xF);
+		if (reg <= 0x7)
+			setLowReg(reg, value);
+		else
+			setHighReg((byte) (reg - 0x8), value);
 	}
 
 	protected int setAddFlags(int op1, int op2) {

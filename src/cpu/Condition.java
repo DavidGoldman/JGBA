@@ -131,7 +131,7 @@ public class Condition {
 		case GT: return "GT";
 		case LE: return "LE";
 		case AL: return "AL";
-		default: return "UNDEFINED";
+		default: return "INVALID";
 		}
 	}
 }
