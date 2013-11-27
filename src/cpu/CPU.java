@@ -94,6 +94,13 @@ public class CPU {
 	protected int getPC() {
 		return regs[15][0];
 	}
+	
+	/**
+	 * @return The stack pointer for the current mode.
+	 */
+	protected int getSP() {
+		return regs[13][cpsr.mapHighRegister((byte) 5)];
+	}
 
 	protected int setAddFlags(int op1, int op2) {
 		int result = op1 + op2;

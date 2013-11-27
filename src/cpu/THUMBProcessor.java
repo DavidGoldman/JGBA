@@ -677,11 +677,15 @@ public class THUMBProcessor implements CPU.IProcessor {
 	}
 
 	private void spRelativeStore(byte top, byte bot) {
-
+		//bot is actually an unsigned 10 bit value
+		int address = cpu.getSP() + ((bot & 0xFF) << 2);
+		cpu.write32(address, cpu.getLowReg(top));
 	}
 
 	private void spRelativeLoad(byte top, byte bot) {
-
+		//bot is actually an unsigned 10 bit value
+		int address = cpu.getSP() + ((bot & 0xFF) << 2);
+		cpu.setLowReg(top, cpu.read32(address));
 	}
 
 	private void loadAddress(boolean sp, byte top, byte bot) {
