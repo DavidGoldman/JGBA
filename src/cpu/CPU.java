@@ -153,6 +153,15 @@ public class CPU {
 		//TODO
 	}
 	
+	protected int read16(int address) {
+		//TODO 
+		return 0;
+	}
+	
+	protected void write16(int address, int val) {
+		//TODO
+	}
+	
 	protected int read8(int address) {
 		//TODO
 		return 0;

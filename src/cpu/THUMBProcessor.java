@@ -55,9 +55,9 @@ public class THUMBProcessor implements CPU.IProcessor {
 					strb(top, bot);
 			else
 				if ((top & 0x4) == 0) /*Bit 10 CLEAR - S*/
-					storeHW(top, bot);  //strh
+					strh(top, bot);
 				else
-					loadSignExtendedByte(top, bot); //ldsb
+					ldsb(top, bot);
 			break;
 		case 0xB: /*Bit 11 SET*/
 			if ((top & 0x2) == 0)/*Bit 9 CLEAR, Load register offset*/
@@ -67,9 +67,9 @@ public class THUMBProcessor implements CPU.IProcessor {
 					ldrb(top, bot);
 			else
 				if ((top & 0x4) == 0) /*Bit 10 CLEAR - S*/
-					loadHW(top, bot);  //ldrh
+					ldrh(top, bot);
 				else
-					loadSignExtendedHW(top, bot); //ldsh
+					ldsh(top, bot); //ldsh
 			break;
 		case 0xC: strImm(top, bot); break;
 		case 0xD: ldrImm(top, bot); break;
@@ -598,20 +598,34 @@ public class THUMBProcessor implements CPU.IProcessor {
 		cpu.setLowReg(bot, cpu.read8(address));
 	}
 
-	private void storeHW(byte top, byte bot) {
-
+	private void strh(byte top, byte bot) {
+		//Halfword store, get address from reg (bit 5-3) and reg (bit 8-6)
+		int address = cpu.getLowReg((byte) ((bot & 0x38) >> 3)) + cpu.getLowReg((byte) (((top & 0x1) << 2) | ((bot & 0xC0) >>> 6)));
+		//Store the halfword in the reg (bot & 0x7, implicit in getLowReg) at [address]
+		cpu.write16(address, cpu.getLowReg(bot));
 	}
 
-	private void loadSignExtendedByte(byte top, byte bot) {
-
+	private void ldsb(byte top, byte bot) {
+		//Sign extended byte load, get address from reg (bit 5-3) and reg (bit 8-6)
+		int address = cpu.getLowReg((byte) ((bot & 0x38) >> 3)) + cpu.getLowReg((byte) (((top & 0x1) << 2) | ((bot & 0xC0) >>> 6)));
+		//Load the low byte at [address] into the reg (bot & 0x7, implicit in getLowReg)
+		//We sign extend by shifting it left 24 then ASR-24 
+		cpu.setLowReg(bot, (cpu.read8(address) << 24) >> 24);
 	}
 
-	private void loadHW(byte top, byte bot) {
-
+	private void ldrh(byte top, byte bot) {
+		//Halfword load, get address from reg (bit 5-3) and reg (bit 8-6)
+		int address = cpu.getLowReg((byte) ((bot & 0x38) >> 3)) + cpu.getLowReg((byte) (((top & 0x1) << 2) | ((bot & 0xC0) >>> 6)));
+		//Load the halfword at [address] into the reg (bot & 0x7, implicit in getLowReg)
+		cpu.setLowReg(bot, cpu.read16(address));
 	}	
 
-	private void loadSignExtendedHW(byte top, byte bot) {
-
+	private void ldsh(byte top, byte bot) {
+		//Sign extended Halfword load, get address from reg (bit 5-3) and reg (bit 8-6)
+		int address = cpu.getLowReg((byte) ((bot & 0x38) >> 3)) + cpu.getLowReg((byte) (((top & 0x1) << 2) | ((bot & 0xC0) >>> 6)));
+		//Load the halfword at [address] into the reg (bot & 0x7, implicit in getLowReg)
+		//We sign extend by shifting it left 16 then ASR-16
+		cpu.setLowReg(bot, (cpu.read16(address) << 16) >> 16);
 	}
 
 	private void strImm(byte top, byte bot) {
