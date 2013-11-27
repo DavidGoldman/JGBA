@@ -75,8 +75,8 @@ public class THUMBProcessor implements CPU.IProcessor {
 		case 0xD: ldrImm(top, bot); break;
 		case 0xE: strbImm(top, bot); break;
 		case 0xF: ldrbImm(top, bot); break;
-		case 0x10: storeHWImm(top, bot); break;
-		case 0x11: loadHWImm(top, bot); break;
+		case 0x10: strhImm(top, bot); break;
+		case 0x11: ldrhImm(top, bot); break;
 		case 0x12: spRelativeStore(top, bot); break;
 		case 0x13: spRelativeLoad(top, bot); break;
 		case 0x14: loadAddress(false, top, bot); break;
@@ -629,7 +629,7 @@ public class THUMBProcessor implements CPU.IProcessor {
 	}
 
 	private void strImm(byte top, byte bot) {
-		//Address is the sum of the immediate5 (which is actually immedate7) and value in Rb
+		//Address is the sum of the immediate5 (which is actually immediate7) and value in Rb
 		//Offset7 = (Bit 10-6) << 2, Rb = bit 5-3
 		int address = ((((top & 0x7) << 2) | ((bot & 0xC0) >>> 6)) << 2) + cpu.getLowReg((byte) ((bot & 0x38) >> 3));
 		//Store the value in the reg (bot & 0x7, implicit in getLowReg) at [address]
@@ -645,7 +645,7 @@ public class THUMBProcessor implements CPU.IProcessor {
 	}
 
 	private void ldrImm(byte top, byte bot) {
-		//Address is the sum of the immediate5 (which is actually immedate7) and value in Rb
+		//Address is the sum of the immediate5 (which is actually immediate7) and value in Rb
 		//Offset7 = (Bit 10-6) << 2, Rb = bit 5-3
 		int address = ((((top & 0x7) << 2) | ((bot & 0xC0) >>> 6)) << 2) + cpu.getLowReg((byte) ((bot & 0x38) >> 3));
 		//Load the value at [address] into the reg (bot & 0x7, implicit in getLowReg)
@@ -660,12 +660,20 @@ public class THUMBProcessor implements CPU.IProcessor {
 		cpu.setLowReg(bot, cpu.read8(address));
 	}
 
-	private void storeHWImm(byte top, byte bot) {
-
+	private void strhImm(byte top, byte bot) {
+		//Address is the sum of the immediate5 (which is actually immediate6) and value in Rb
+		//Offset6 = (Bit 10-6) << 1, Rb = bit 5-3
+		int address = ((((top & 0x7) << 2) | ((bot & 0xC0) >>> 6)) << 1) + cpu.getLowReg((byte) ((bot & 0x38) >> 3));
+		//Store the halfword in the reg (bot & 0x7, implicit in getLowReg) at [address]
+		cpu.write16(address, cpu.getLowReg(bot));
 	}
 
-	private void loadHWImm(byte top, byte bot) {
-
+	private void ldrhImm(byte top, byte bot) {
+		//Address is the sum of the immediate5 (which is actually immediate6) and value in Rb
+		//Offset6 = (Bit 10-6) << 1, Rb = bit 5-3
+		int address = ((((top & 0x7) << 2) | ((bot & 0xC0) >>> 6)) << 1) + cpu.getLowReg((byte) ((bot & 0x38) >> 3));
+		//Load the halfword at [address] into the reg (bot & 0x7, implicit in getLowReg)
+		cpu.setLowReg(bot, cpu.read16(address));
 	}
 
 	private void spRelativeStore(byte top, byte bot) {
