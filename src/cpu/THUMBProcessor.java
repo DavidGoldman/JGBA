@@ -84,14 +84,16 @@ public class THUMBProcessor implements CPU.IProcessor {
 		case 0x16:
 			if ((top & 0x7) == 0) /*Bit 10-8 CLEAR*/
 				addOffsetToSP(bot); 
-			if ((top & 0x6) == 0x4) /*Bit 10 SET, Bit 9 CLEAR*/
+			else if ((top & 0x6) == 0x4) /*Bit 10 SET, Bit 9 CLEAR*/
 				pushRegisters(top, bot); 
-			//TODO Add undefined instruction trap here?
+			else
+				cpu.undefinedInstr();
 			break;
 		case 0x17:
 			if ((top & 0x6) == 0x4) /*Bit 10 SET, Bit 9 CLEAR*/
 				popRegisters(top, bot); 
-			//TODO Add undefined instruction trap here?
+			else 
+				cpu.undefinedInstr();
 			break;
 		case 0x18: storeMult(top, bot); break;
 		case 0x19: loadMult(top, bot); break;
@@ -103,7 +105,7 @@ public class THUMBProcessor implements CPU.IProcessor {
 				conditionalBranch(top, bot);
 			break;
 		case 0x1C: unconditionalBranch(top, bot); break;
-		case 0x1D: System.out.println("UNDEFINED THUMB INSTRUCTION"); break; //Undefined????
+		case 0x1D: cpu.undefinedInstr(); break; 
 		case 0x1E: longBranch(top, bot); break;
 		case 0x1F: branchWithLink(top, bot); break;
 		}
@@ -472,7 +474,7 @@ public class THUMBProcessor implements CPU.IProcessor {
 			else if (high2)
 				addLH(dest, source);
 			else
-				; //TODO Add undefined instruction trap here?
+				cpu.undefinedInstr();
 			break;
 		case 0x1:
 			if (high1 && high2)
@@ -482,7 +484,7 @@ public class THUMBProcessor implements CPU.IProcessor {
 			else if (high2)
 				cmpLH(dest, source);
 			else
-				; //TODO Add undefined instruction trap here?
+				cpu.undefinedInstr();
 			break;
 		case 0x2:
 			if (high1 && high2)
@@ -492,11 +494,11 @@ public class THUMBProcessor implements CPU.IProcessor {
 			else if (high2)
 				movLH(dest, source);
 			else
-				; //TODO Add undefined instruction trap here?
+				cpu.undefinedInstr();
 			break;
 		case 0x3:
 			if (high1)
-				; //TODO Add undefined instruction trap here?
+				cpu.undefinedInstr();
 			if (high2)
 				branchXLow(source);
 			else
@@ -547,9 +549,8 @@ public class THUMBProcessor implements CPU.IProcessor {
 			cpu.cpsr.thumb = false;
 			cpu.branch(address & 0xFFFFFFFC); //Word aligned
 		}
-		else {
+		else
 			cpu.branch(address & 0xFFFFFFFE); //Halfword aligned
-		}
 	}
 
 	private void branchXHigh(byte hs) {
@@ -558,9 +559,8 @@ public class THUMBProcessor implements CPU.IProcessor {
 			cpu.cpsr.thumb = false;
 			cpu.branch(address & 0xFFFFFFFC); //Word aligned
 		}
-		else {
+		else 
 			cpu.branch(address & 0xFFFFFFFE); //Halfword aligned
-		}
 	}
 
 	private void pcRelativeLoad(byte top, byte word8) {
@@ -765,7 +765,7 @@ public class THUMBProcessor implements CPU.IProcessor {
 	private void conditionalBranch(byte top, byte bot) {
 		byte cond = (byte) (top & 0xF);
 		if (cond == 14)
-			; //TODO Undefined instruction?
+			cpu.undefinedInstr();
 		//8 bit offset is actually 9 bits
 		else if (Condition.condition(cond, cpu.cpsr))
 			cpu.branch(cpu.getPC() + ((bot & 0xFF) << 1));

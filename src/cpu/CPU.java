@@ -200,6 +200,10 @@ public class CPU {
 	protected void softwareInterrupt(byte arg) {
 		
 	}
+	
+	protected void undefinedInstr() {
+		
+	}
 
 	protected int getStatusReg(int num) {
 		return 0;
