@@ -739,11 +739,27 @@ public class THUMBProcessor implements CPU.IProcessor {
 	}
 
 	private void storeMult(byte top, byte bot) {
-
+		//POST INCR
+		int address = cpu.getLowReg(top);
+		for (byte reg = 0; reg <= 7; ++reg) {
+			if ((bot & (1 << reg)) != 0) {
+				cpu.write32(address, cpu.getLowReg(reg));
+				address += 4;
+			}
+		}
+		cpu.setLowReg(top, address);
 	}
 
 	private void loadMult(byte top, byte bot) {
-
+		//POST INCR
+		int address = cpu.getLowReg(top);
+		for (byte reg = 0; reg <= 7; ++reg) {
+			if ((bot & (1 << reg)) != 0) {
+				cpu.setReg(reg, cpu.read32(address));
+				address += 4;
+			}
+		}
+		cpu.setLowReg(top, address);
 	}
 
 	private void conditionalBranch(byte top, byte bot) {
