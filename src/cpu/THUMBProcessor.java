@@ -102,7 +102,7 @@ public class THUMBProcessor implements CPU.IProcessor {
 			else
 				conditionalBranch(top, bot);
 			break;
-		case 0x1C: unconditionalBranch(top, bot);
+		case 0x1C: unconditionalBranch(top, bot); break;
 		case 0x1D: System.out.println("UNDEFINED THUMB INSTRUCTION"); break; //Undefined????
 		case 0x1E: longBranch(top, bot); break;
 		case 0x1F: branchWithLink(top, bot); break;
