@@ -697,7 +697,7 @@ public class THUMBProcessor implements CPU.IProcessor {
 		//bot is actually an unsigned 10 bit value
 		cpu.setLowReg(top, cpu.getSP() + ((bot & 0xFF) << 2));
 	}
-	
+
 	private void addOffsetToSP(byte bot) { 
 		//Bit 7 is sign bit, bit 6-0 is shifted by 2 (9 bit constant)
 		if ((bot & 0x80) == 0) //Pos/Add
@@ -707,11 +707,35 @@ public class THUMBProcessor implements CPU.IProcessor {
 	}
 
 	private void pushRegisters(byte top, byte bot) {
-
+		//PRE DREC 
+		int sp = cpu.getSP();
+		if ((top & 0x1) == 0x1) { //bit 8 set - store LR
+			sp -= 4;
+			cpu.write32(sp, cpu.getLR());
+		}
+		for (byte reg = 7; reg >= 0; --reg) { //Check all 8 bits
+			if ((bot & (1 << reg)) != 0)	{
+				sp -= 4;
+				cpu.write32(sp, cpu.getLowReg(reg));
+			}
+		}
+		cpu.setSP(sp);
 	}
 
 	private void popRegisters(byte top, byte bot) {
-
+		//POST INCR
+		int sp = cpu.getSP();
+		for (byte reg = 0; reg <= 7; ++reg) {
+			if ((bot & (1 << reg)) != 0) {
+				cpu.setLowReg(reg, cpu.read32(sp));
+				sp += 4;
+			}
+		}
+		if ((top & 0x1) == 0x1) { //bit 8 set - load PC
+			cpu.setPC(cpu.read32(sp));
+			sp += 4;
+		}
+		cpu.setSP(sp);
 	}
 
 	private void storeMult(byte top, byte bot) {
