@@ -1,7 +1,21 @@
 package cpu;
 
-import static cpu.THUMBALUOpCode.*;
-import utils.ByteUtils;
+import static cpu.THUMBALUOpCode.ADC;
+import static cpu.THUMBALUOpCode.AND;
+import static cpu.THUMBALUOpCode.ASR;
+import static cpu.THUMBALUOpCode.BIC;
+import static cpu.THUMBALUOpCode.CMN;
+import static cpu.THUMBALUOpCode.CMP;
+import static cpu.THUMBALUOpCode.EOR;
+import static cpu.THUMBALUOpCode.LSL;
+import static cpu.THUMBALUOpCode.LSR;
+import static cpu.THUMBALUOpCode.MUL;
+import static cpu.THUMBALUOpCode.MVN;
+import static cpu.THUMBALUOpCode.NEG;
+import static cpu.THUMBALUOpCode.ORR;
+import static cpu.THUMBALUOpCode.ROR;
+import static cpu.THUMBALUOpCode.SBC;
+import static cpu.THUMBALUOpCode.TST;
 
 public class THUMBProcessor implements CPU.IProcessor {
 
@@ -248,7 +262,6 @@ public class THUMBProcessor implements CPU.IProcessor {
 		case MUL: mul(rd, rs); break;
 		case BIC: bic(rd, rs); break;
 		case MVN: mvn(rd, rs); break;
-		default: throw new RuntimeException("Should not occur! OP=" + ByteUtils.hex(op));
 		}
 	}
 
