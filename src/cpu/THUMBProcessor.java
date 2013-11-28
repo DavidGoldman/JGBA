@@ -98,14 +98,14 @@ public class THUMBProcessor implements CPU.IProcessor {
 		case 0x1A: conditionalBranch(top, bot); break;
 		case 0x1B:
 			if ((top & 0xF) == 0xF)
-				softwareInterrupt(pc, bot);
+				softwareInterrupt(bot);
 			else
 				conditionalBranch(top, bot);
 			break;
 		case 0x1C: unconditionalBranch(top, bot);
 		case 0x1D: System.out.println("UNDEFINED THUMB INSTRUCTION"); break; //Undefined????
-		case 0x1E: longBranch(false, top, bot); break;
-		case 0x1F: longBranch(true, top, bot); break;
+		case 0x1E: longBranch(top, bot); break;
+		case 0x1F: branchWithLink(top, bot); break;
 		}
 	}
 
@@ -763,19 +763,40 @@ public class THUMBProcessor implements CPU.IProcessor {
 	}
 
 	private void conditionalBranch(byte top, byte bot) {
-
+		byte cond = (byte) (top & 0xF);
+		if (cond == 14)
+			; //TODO Undefined instruction?
+		//8 bit offset is actually 9 bits
+		else if (Condition.condition(cond, cpu.cpsr))
+			cpu.branch(cpu.getPC() + ((bot & 0xFF) << 1));
 	}
 
-	private void softwareInterrupt(int pc, byte val) {
-
+	private void softwareInterrupt(byte val) {
+		cpu.softwareInterrupt(val);
 	}
 
 	private void unconditionalBranch(byte top, byte bot) {
-
+		//11 bits are actually 12, halfword aligned
+		int offset = (((top & 0x7) << 8) | (bot & 0xFF)) << 1;
+		cpu.branch(cpu.getPC() + offset);
 	}
 
-	private void longBranch(boolean offsetLow, byte top, byte bot) {
-
+	private void longBranch(byte top, byte bot) {
+		//Bit 11 is clear - offset high - LR = PC + (Offset11 << 12)
+		int offset = (((top & 0x7) << 8) | (bot & 0xFF)) << 12;
+		cpu.setLR(cpu.getPC() + offset);
+	}
+	
+	private void branchWithLink(byte top, byte bot) {
+		//Bit 11 is set - offset low - PC = LR + (Offset11 << 1)
+		//Also store next instruction in LR
+		int offset = (((top & 0x7) << 8) | (bot & 0xFF)) << 1;
+		int nextInstr = cpu.getPC() - 2;
+		//We shouldn't need to halfword align this, assuming that this is called
+		//after a long branch call, but we'll be safe and do it anyway
+		cpu.branch((cpu.getLR() + offset) & 0xFFFFFFFE);
+		//Update LR with the address of the next instruction, set bit 0 
+		cpu.setLR(nextInstr | 0x1);
 	}
 
 }

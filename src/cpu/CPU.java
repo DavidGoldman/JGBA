@@ -196,6 +196,10 @@ public class CPU {
 	protected void write8(int address, int val) {
 		//TODO
 	}
+	
+	protected void softwareInterrupt(byte arg) {
+		
+	}
 
 	protected int getStatusReg(int num) {
 		return 0;
