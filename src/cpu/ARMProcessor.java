@@ -73,8 +73,14 @@ public class ARMProcessor implements CPU.IProcessor {
 		}
 	}
 
-	private void branchAndExchange(byte Rn) {
-		
+	private void branchAndExchange(byte rn) {
+		int address = cpu.getReg(rn);
+		if ((address & 0x1) == 0)
+			cpu.branch(address & 0xFFFFFFFC); //Word aligned
+		else {
+			cpu.cpsr.thumb = true;	
+			cpu.branch(address & 0xFFFFFFFE); //Halfword aligned
+		}
 	}
 
 	private void dataProcPSR(byte top, byte midTop, byte midBot, byte bot) {

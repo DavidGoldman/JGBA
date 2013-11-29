@@ -17,6 +17,9 @@ import static cpu.THUMBALUOpCode.ROR;
 import static cpu.THUMBALUOpCode.SBC;
 import static cpu.THUMBALUOpCode.TST;
 
+/*
+ * TODO Handle pipelining/instructions modifying the pipeline flow
+ */
 public class THUMBProcessor implements CPU.IProcessor {
 
 	private final CPU cpu;
