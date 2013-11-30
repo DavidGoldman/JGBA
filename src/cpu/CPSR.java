@@ -80,7 +80,7 @@ public class CPSR {
 	
 	public CPSR() {
 		//TODO Initialize this correctly
-		mode = USER;
+		mode = SUPERVISOR;
 	}
 	
 	public int mapHighRegister(byte reg) {

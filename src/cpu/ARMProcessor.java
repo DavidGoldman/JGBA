@@ -1,7 +1,7 @@
 package cpu;
 
 public class ARMProcessor implements CPU.IProcessor {
-	
+
 	private final CPU cpu;
 
 	public ARMProcessor(CPU cpu) {
@@ -9,13 +9,11 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	/**
-	 * Given the pc, accesses the cartridge ROM and retrieves the current operation bytes.
-	 * If the evaluated condition is true, an operation will be decoded and executed.
-	 * 
-	 * TODO Optimize (switch)
-	 * 
-	 * @param pc Program counter for this operation
-	 */
+     * Given the pc, accesses the cartridge ROM and retrieves the current operation bytes.
+     * If the evaluated condition is true, an operation will be decoded and executed.
+     * 
+     * @param pc Program counter for this operation
+     */
 	@Override
 	public void execute(int pc) {
 		/*4 Bytes stored in Little-Endian format
@@ -30,46 +28,78 @@ public class ARMProcessor implements CPU.IProcessor {
 			byte bit27_to_24 = (byte) (top & 0xF);
 			byte bit23_to_20 = (byte) ((midTop >>> 4) & 0xF);
 
-			if (bit27_to_24 == 1 && midTop == (byte)0x2F && midBot == (byte)0xFF && (bot & 0xF0) == 0x10) /*0x12FFF1, Rn*/
-				branchAndExchange((byte) (bot & 0xF));
-			else if ((bit27_to_24 & 0xC) == 0 && ((bit27_to_24 & 0x2) == 0x2 || (bot & 0x10) == 0 || (bot & 0x80) == 0)) /*Bit 27,26 are CLEAR AND (Bit 25 SET OR Bit 4 CLEAR OR Bit 7 CLEAR) */ 
-				dataProcPSR(top, midTop, midBot, bot);																	 /*OK since we check for Branch Exchange first */																								
-			else if (bit27_to_24 == 0 || bit27_to_24 == 1) { /*Bit 24 = ?, Bit 7 and 4 WILL be SET because of statement above*/ 
-				if ((bot & 0x60) == 0) { /*Bit 6,5 are CLEAR*/
-					if (bit27_to_24 == 0 && (bit23_to_20 & 0xC) == 0) /*Bit 27-22 are all CLEAR*/
+			switch(bit27_to_24) {
+			case 0x0:
+				if ((bot & 0x10) == 0 || (bot & 0x80) == 0) //Bit 4 or bit 7 clear
+					dataProcPSR(top, midTop, midBot, bot);
+				else if ((bot & 0x60) == 0) { //Bit 6,5 are CLEAR
+					if ((bit23_to_20 & 0xC) == 0)
 						multiply(midTop, midBot, bot);
-					if (bit27_to_24 == 0 && (bit23_to_20 & 0x8) == 0x8) /*Bit 27-24 are all CLEAR, bit 23 is SET*/
+					else if ((bit23_to_20 & 0x8) == 0x8)
 						multiplyLong(midTop, midBot, bot);
-					if (bit27_to_24 == 1 && (bit23_to_20 & 0xB) == 0 && (midBot & 0xF) == 0) /*Bit 27-25 CLEAR, Bit 24 SET, BIT 23,21,20 CLEAR, Bit 11-8 CLEAR*/
+					else
+						; //TODO Undefined
+				}
+				else { //Bit 6,5 are NOT both CLEAR, implies Halfword DT
+					if ((bit23_to_20 & 0x4) == 0x4) //Bit 22 is SET
+						halfwordDTImmediate(false, midTop, midBot, bot);
+					else if ((midBot & 0xF) == 0) //Bit 22 is CLEAR AND Bit 11-8 CLEAR
+						halfwordDTRegister(false, midTop, midBot, bot);
+					else
+						; //TODO Undefined
+				}
+				break;
+			case 0x1:
+				if (midTop == (byte)0x2F && midBot == (byte)0xFF && (bot & 0xF0) == 0x10) //0x12FFF1, Rn
+					branchAndExchange((byte) (bot & 0xF));
+				else if ((bot & 0x10) == 0 || (bot & 0x80) == 0) //Bit 4 or bit 7 clear
+					dataProcPSR(top, midTop, midBot, bot); 
+				else if ((bot & 0x60) == 0) { //Bit 6,5 are CLEAR
+					if ((bit23_to_20 & 0xB) == 0 && (midBot & 0xF) == 0) //Bit 27-25 CLEAR, Bit 24 SET, BIT 23,21,20 CLEAR, Bit 11-8 CLEAR
 						singleDataSwap(midTop, midBot, bot);
+					else
+						; //TODO Undefined
 				}
-				else { /*Bit 6,5 are NOT both CLEAR, implies Halfword DT*/
-					if ((bit23_to_20 & 0x4) == 0x4) /*Bit 22 is SET*/
-						halfwordDTImmediate(bit27_to_24 == 1, midTop, midBot, bot);
-					else if ((midBot & 0xF) == 0) /* Bit 22 is CLEAR AND Bit 11-8 CLEAR*/
-						halfwordDTRegister(bit27_to_24 == 1, midTop, midBot, bot);
+				else { //Bit 6,5 are NOT both CLEAR, implies Halfword DT
+					if ((bit23_to_20 & 0x4) == 0x4) //Bit 22 is SET
+						halfwordDTImmediate(true, midTop, midBot, bot);
+					else if ((midBot & 0xF) == 0) //Bit 22 is CLEAR AND Bit 11-8 CLEAR
+						halfwordDTRegister(true, midTop, midBot, bot);
+					else
+						; //TODO Undefined
 				}
-			}
-			else if ((bit27_to_24 & 0xC) == 0x4) {/*Bit 27 is CLEAR, Bit 26 is SET*/
-				if ((bit27_to_24 & 0x2) == 0 || (bot & 0x10) == 0) /*Bit 25 is CLEAR OR Bit 4 is CLEAR*/
-					singleDataTransfer(top, midTop, midBot, bot);
-				else /*Bit 27 CLEAR, Bit 26,25 SET, Bit 4 SET*/
+				break;
+			case 0x2: dataProcPSR(top, midTop, midBot, bot); break;
+			case 0x3: dataProcPSR(top, midTop, midBot, bot); break;
+			case 0x4: singleDataTransferImmPost(midTop, midBot, bot); break;
+			case 0x5: singleDataTransferImmPre(midTop, midBot, bot); break;
+			case 0x6: 
+				if ((bot & 0x10) == 0) /*Bit 4 CLEAR*/
+					singleDataTransferRegPost(midTop, midBot, bot);
+				else
 					undefinedTrap();
-			}
-			else if (bit27_to_24 == 8 || bit27_to_24 == 9) /*Bit 27 SET, Bit 26,25 CLEAR*/
-				blockDataTransfer(bit27_to_24 == 9, midTop, midBot, bot);
-			else if (bit27_to_24 == 10 || bit27_to_24 == 11) /*Bit 27 SET, Bit 26 CLEAR, Bit 24 SET*/
-				branch(bit27_to_24 == 11, midTop, midBot, bot);
-			else if (bit27_to_24 == 12 || bit27_to_24 == 13) /*Bit 27,26 SET, Bit 25 CLEAR*/
-				coprocDataTransfer(bit27_to_24 == 13, midTop, midBot, bot);
-			else if (bit27_to_24 == 14) { /*Bit 27-25 SET, Bit 24 CLEAR*/
+				break;
+			case 0x7:
+				if ((bot & 0x10) == 0) /*Bit 4 CLEAR*/
+					singleDataTransferRegPre(midTop, midBot, bot);
+				else
+					undefinedTrap();
+				break;
+			case 0x8: blockDataTransferPost(midTop, midBot, bot); break;
+			case 0x9: blockDataTransferPre(midTop, midBot, bot); break;
+			case 0xA: branch(midTop, midBot, bot); break;
+			case 0xB: branchLink(midTop, midBot, bot); break;
+			case 0xC: coprocDataTransferPost(midTop, midBot, bot); break;
+			case 0xD: coprocDataTransferPre(midTop, midBot, bot); break;
+			case 0xE:
 				if ((bot & 0x10) == 0) /*Bit 4 CLEAR*/
 					coprocDataOperation(midTop, midBot, bot);
-				else /*Bit 4 SET*/
+				else
 					coprocRegisterTransfer(midTop, midBot, bot);
+				break;
+			case 0xF: softwareInterrupt(midTop, midBot, bot); break;
 			}
-			else /*if (bit27_to_24 == 15)*/ /*Bit 27-24 are all SET*/							
-				softwareInterrupt(pc, midTop, midBot, bot);
+			
 		}
 	}
 
@@ -107,22 +137,47 @@ public class ARMProcessor implements CPU.IProcessor {
 
 	}
 
-	private void singleDataTransfer(byte top, byte midTop, byte midBot, byte bot) {
+	private void singleDataTransferImmPre(byte midTop, byte midBot, byte bot) {
+
+	}
+	
+	private void singleDataTransferImmPost(byte midTop, byte midBot, byte bot) {
+
+	}
+	
+	private void singleDataTransferRegPre(byte midTop, byte midBot, byte bot) {
+
+	}
+	
+	private void singleDataTransferRegPost(byte midTop, byte midBot, byte bot) {
 
 	}
 
 	private void undefinedTrap() {
 
 	}
-	private void blockDataTransfer(boolean p, byte midTop, byte midBot, byte bot) {
-
-	}
-
-	private void branch(boolean l, byte midTop, byte midBot, byte bot) {
 	
+	private void blockDataTransferPre(byte midTop, byte midBot, byte bot) {
+
+	}
+	
+	private void blockDataTransferPost(byte midTop, byte midBot, byte bot) {
+
+	}
+	
+	private void branchLink(byte midTop, byte midBot, byte bot) {
+		
 	}
 
-	private void coprocDataTransfer(boolean p, byte midTop, byte midBot, byte bot) {
+	private void branch(byte midTop, byte midBot, byte bot) {
+
+	}
+
+	private void coprocDataTransferPre(byte midTop, byte midBot, byte bot) {
+
+	}
+	
+	private void coprocDataTransferPost(byte midTop, byte midBot, byte bot) {
 
 	}
 
@@ -134,7 +189,7 @@ public class ARMProcessor implements CPU.IProcessor {
 
 	}
 
-	private void softwareInterrupt(int pc, byte midTop, byte midBot, byte bot) {
+	private void softwareInterrupt(byte midTop, byte midBot, byte bot) {
 
 	}
 
