@@ -95,10 +95,6 @@ public class CPU {
 		return regs[15][0];
 	}
 	
-	protected void setPC(int val) {
-		regs[15][0] = val;
-	}
-	
 	/**
 	 * @return The link register for the current mode.
 	 */

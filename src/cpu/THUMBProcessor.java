@@ -27,6 +27,13 @@ public class THUMBProcessor implements CPU.IProcessor {
 	public THUMBProcessor(CPU cpu) {
 		this.cpu = cpu;
 	}
+	
+	protected void setHighRegSafe(byte reg, int val) {
+		if ((reg & 0x7) == 0x7)
+			cpu.branch(val & 0xFFFFFFFE);
+		else
+			cpu.setHighReg(reg, val);
+	}
 
 	@Override
 	public void execute(int pc) {
@@ -524,11 +531,11 @@ public class THUMBProcessor implements CPU.IProcessor {
 	}
 
 	private void addHH(byte hd, byte hs) {
-		cpu.setHighReg(hd, cpu.setAddFlags(cpu.getHighReg(hd), cpu.getHighReg(hs)));
+		setHighRegSafe(hd, cpu.setAddFlags(cpu.getHighReg(hd), cpu.getHighReg(hs)));
 	}
 
 	private void addHL(byte hd, byte rs) {
-		cpu.setHighReg(hd, cpu.setAddFlags(cpu.getHighReg(hd), cpu.getLowReg(rs)));
+		setHighRegSafe(hd, cpu.setAddFlags(cpu.getHighReg(hd), cpu.getLowReg(rs)));
 	}
 
 	private void addLH(byte rd, byte hs) {
@@ -548,11 +555,11 @@ public class THUMBProcessor implements CPU.IProcessor {
 	}
 
 	private void movHH(byte hd, byte hs) {
-		cpu.setHighReg(hd, cpu.getHighReg(hs));
+		setHighRegSafe(hd, cpu.getHighReg(hs));
 	}
 
 	private void movHL(byte hd, byte rs) {
-		cpu.setHighReg(hd, cpu.getLowReg(rs));
+		setHighRegSafe(hd, cpu.getLowReg(rs));
 	}
 
 	private void movLH(byte rd, byte hs) {
@@ -748,7 +755,7 @@ public class THUMBProcessor implements CPU.IProcessor {
 			}
 		}
 		if ((top & 0x1) == 0x1) { //bit 8 set - load PC
-			cpu.setPC(cpu.read32(sp));
+			cpu.branch(cpu.read32(sp) & 0xFFFFFFFE);
 			sp += 4;
 		}
 		cpu.setSP(sp);
@@ -771,7 +778,7 @@ public class THUMBProcessor implements CPU.IProcessor {
 		int address = cpu.getLowReg(top);
 		for (byte reg = 0; reg <= 7; ++reg) {
 			if ((bot & (1 << reg)) != 0) {
-				cpu.setReg(reg, cpu.read32(address));
+				cpu.setLowReg(reg, cpu.read32(address));
 				address += 4;
 			}
 		}
