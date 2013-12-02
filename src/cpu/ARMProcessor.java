@@ -25,12 +25,16 @@ public class ARMProcessor implements CPU.IProcessor {
 		this.cpu = cpu;
 	}
 
+	private int getRegDelayedPC(byte reg) {
+		return (reg & 0xF) == 0xF ? cpu.getPC() + 4 : cpu.getReg(reg);
+	}
+
 	/**
-     * Given the pc, accesses the cartridge ROM and retrieves the current operation bytes.
-     * If the evaluated condition is true, an operation will be decoded and executed.
-     * 
-     * @param pc Program counter for this operation
-     */
+	 * Given the pc, accesses the cartridge ROM and retrieves the current operation bytes.
+	 * If the evaluated condition is true, an operation will be decoded and executed.
+	 * 
+	 * @param pc Program counter for this operation
+	 */
 	@Override
 	public void execute(int pc) {
 		/*4 Bytes stored in Little-Endian format
@@ -116,7 +120,7 @@ public class ARMProcessor implements CPU.IProcessor {
 				break;
 			case 0xF: softwareInterrupt(midTop, midBot, bot); break;
 			}
-			
+
 		}
 	}
 
@@ -138,11 +142,14 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	private void dataProcS(byte top, byte midTop, byte midBot, byte bot) {
+		boolean imm = ((top & 0x2) == 0x2); //Immediate or register shift
 		//Opcode is bit 24-21
 		byte opcode = (byte) (((top & 0x1) << 3) | ((midTop & 0xE0) >>> 5)); 
-		int op1 = cpu.getReg(midTop); //Rn is the last 4 bits of midTop
+		
+		int op1 = (imm) ? cpu.getReg(midTop) : getRegDelayedPC(midTop); //If register shift, PC is another 4 ahead
 		byte rd = (byte) ((midBot & 0xF0) >>> 4);
-		int op2 = getOp2(midBot, bot);
+		int op2 = getOpS(imm, midBot, bot);
+		
 		switch(opcode) { //TODO Implement methods
 		case AND: ands(rd, op1, op2); break;
 		case EOR: eors(rd, op1, op2); break;
@@ -164,12 +171,82 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	private void dataProc(byte top, byte midTop, byte midBot, byte bot) {
-		
+
 	}
-	
-	private int getOp2(byte midBot, byte bot) {
-		//TODO
-		return 0;
+
+	private int getOpS(boolean imm, byte midBot, byte bot) {
+		if (!imm) {
+			byte op = (byte) ((bot & 0x60) >>> 5); //Shift is either bottom byte of register or 5 bit immediate value
+			int shift = ((bot & 0x10) == 0x10) ? (cpu.getReg(midBot) & 0xF) : (((midBot & 0xF) << 1) | ((bot & 0x80) >>> 7));
+			int rm = getRegDelayedPC(bot);
+			switch(op) {
+			case 0: return lsls(rm, shift);
+			case 1: return lsrs(rm, shift);
+			case 2: return asrs(rm, shift);
+			case 3: return rors(rm, shift);
+			}
+		}
+		//Otherwise Rotate immediate value
+		return rors(bot & 0xFF, (midBot & 0xF)*2); 
+	}
+
+	private int lsls(int val, int shift) {
+		if (shift != 0) { //Carry not affected by 0
+			//Carry set by the last bit shifted out (=sign of the value shifted one less)
+			cpu.cpsr.carry = ((val << (shift-1)) < 0);
+			val <<= shift;
+		}
+		cpu.cpsr.negative = (val < 0);
+		cpu.cpsr.zero = (val == 0);
+		return val;
+	}
+
+	private int lsrs(int val, int shift){
+		if (shift != 0) {
+			//Carry set by the last bit shifted out (= 0 bit of the value shifted one less)
+			cpu.cpsr.carry = (((val >>> (shift - 1)) & 0x1) == 0x1);
+			val >>>= shift;
+		}
+		else {
+			//This is actually LSRS #32 (page 13 of ARM pdf), thus carry = sign bit, value becomes 0
+			cpu.cpsr.carry = (val < 0);
+			val = 0;
+		}
+		cpu.cpsr.negative = (val < 0);
+		cpu.cpsr.zero = (val == 0);
+		return val;
+	}
+
+	private int asrs(int val, int shift) {
+		if (shift != 0) {
+			//Carry set by the last bit shifted out (= 0 bit of the value shifted one less)
+			cpu.cpsr.carry = (((val >> (shift - 1)) & 0x1) == 0x1);
+			val >>= shift;
+		}
+		else {
+			//This is actually ASRS #32 (page 13 of ARM pdf), thus carry = sign bit, value becomes either all 0's or all 1's
+			cpu.cpsr.carry = (val < 0);
+			val >>= 31;
+		}
+		cpu.cpsr.negative = (val < 0);
+		cpu.cpsr.zero = (val == 0);
+		return val;
+	}
+
+	private int rors(int val, int rotate) {
+		if (rotate > 0) {
+			rotate = rotate & 0x1F; //If rotate >32, we subtract 32 until in range [0-31] -> same as & 0x1F (31)
+			if (rotate > 0) { //Carry is the last bit rotated out
+				cpu.cpsr.carry = (((val >>> (rotate - 1)) & 0x1) == 0x1);
+				//Val is the remaining bits from the shift and the removed bits shifted to the left
+				val = (val >>> rotate) | (val << (32-rotate));
+			}
+			else //ROR 32, carry equal to sign bit
+				cpu.cpsr.carry = (val < 0);
+		}
+		cpu.cpsr.negative = (val < 0);
+		cpu.cpsr.zero = (val == 0);
+		return val;
 	}
 
 	private void multiply(byte midTop, byte midBot, byte bot) {
@@ -195,15 +272,15 @@ public class ARMProcessor implements CPU.IProcessor {
 	private void singleDataTransferImmPre(byte midTop, byte midBot, byte bot) {
 
 	}
-	
+
 	private void singleDataTransferImmPost(byte midTop, byte midBot, byte bot) {
 
 	}
-	
+
 	private void singleDataTransferRegPre(byte midTop, byte midBot, byte bot) {
 
 	}
-	
+
 	private void singleDataTransferRegPost(byte midTop, byte midBot, byte bot) {
 
 	}
@@ -211,17 +288,17 @@ public class ARMProcessor implements CPU.IProcessor {
 	private void undefinedTrap() {
 
 	}
-	
+
 	private void blockDataTransferPre(byte midTop, byte midBot, byte bot) {
 
 	}
-	
+
 	private void blockDataTransferPost(byte midTop, byte midBot, byte bot) {
 
 	}
-	
+
 	private void branchLink(byte midTop, byte midBot, byte bot) {
-		
+
 	}
 
 	private void branch(byte midTop, byte midBot, byte bot) {
@@ -231,7 +308,7 @@ public class ARMProcessor implements CPU.IProcessor {
 	private void coprocDataTransferPre(byte midTop, byte midBot, byte bot) {
 
 	}
-	
+
 	private void coprocDataTransferPost(byte midTop, byte midBot, byte bot) {
 
 	}
