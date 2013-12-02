@@ -29,6 +29,23 @@ public class ARMProcessor implements CPU.IProcessor {
 		return (reg & 0xF) == 0xF ? cpu.getPC() + 4 : cpu.getReg(reg);
 	}
 
+	private void setRegSafe(byte reg, int val) {
+		if ((reg & 0xF) == 0xF)
+			cpu.branch(val & 0xFFFFFFFC);
+		else
+			cpu.setReg(reg, val);
+	}
+
+	private void setRegSafeCPSR(byte reg, int val) {
+		if ((reg & 0xF) == 0xF) {
+			cpu.loadCPSR();
+			val &= (cpu.cpsr.thumb) ? 0xFFFFFFFE : 0xFFFFFFFC;
+			cpu.branch(val);
+		}
+		else
+			cpu.setReg(reg, val);
+	}
+
 	/**
 	 * Given the pc, accesses the cartridge ROM and retrieves the current operation bytes.
 	 * If the evaluated condition is true, an operation will be decoded and executed.
@@ -145,12 +162,12 @@ public class ARMProcessor implements CPU.IProcessor {
 		boolean imm = ((top & 0x2) == 0x2); //Immediate or register shift
 		//Opcode is bit 24-21
 		byte opcode = (byte) (((top & 0x1) << 3) | ((midTop & 0xE0) >>> 5)); 
-		
+
 		int op1 = (imm) ? cpu.getReg(midTop) : getRegDelayedPC(midTop); //If register shift, PC is another 4 ahead
 		byte rd = (byte) ((midBot & 0xF0) >>> 4);
 		int op2 = getOpS(imm, midBot, bot);
-		
-		switch(opcode) { //TODO Implement methods
+
+		switch(opcode) {
 		case AND: ands(rd, op1, op2); break;
 		case EOR: eors(rd, op1, op2); break;
 		case SUB: subs(rd, op1, op2); break;
@@ -168,6 +185,91 @@ public class ARMProcessor implements CPU.IProcessor {
 		case BIC: bics(rd, op1, op2); break;
 		case MVN: mvns(rd, op1, op2); break;
 		}
+	}
+
+	private void ands(byte rd, int op1, int op2) {
+		int val = op1 & op2;
+		cpu.cpsr.negative = (val < 0);
+		cpu.cpsr.zero = (val == 0);
+		setRegSafeCPSR(rd, val);
+	}
+
+	private void eors(byte rd, int op1, int op2) {
+		int val = op1 ^ op2;
+		cpu.cpsr.negative = (val < 0);
+		cpu.cpsr.zero = (val == 0);
+		setRegSafeCPSR(rd, val);
+	}
+
+	private void subs(byte rd, int op1, int op2) {
+		setRegSafeCPSR(rd, cpu.setSubFlags(op1, op2));
+	}
+
+	private void rsbs(byte rd, int op1, int op2) {
+		setRegSafeCPSR(rd, cpu.setSubFlags(op2, op1));
+	}
+
+	private void adds(byte rd, int op1, int op2) {
+		setRegSafeCPSR(rd, cpu.setAddFlags(op1, op2));
+	}
+
+	private void adcs(byte rd, int op1, int op2) {
+		setRegSafeCPSR(rd, cpu.setAddCarryFlags(op1, op2));
+	}
+
+	private void sbcs(byte rd, int op1, int op2) {
+		setRegSafeCPSR(rd, cpu.setSubCarryFlags(op1, op2));
+	}
+
+	private void rscs(byte rd, int op1, int op2) {
+		setRegSafeCPSR(rd, cpu.setSubCarryFlags(op2, op1));
+	}
+
+	private void tst(byte rd, int op1, int op2) {
+		int val = op1 & op2;
+		cpu.cpsr.negative = (val < 0);
+		cpu.cpsr.zero = (val == 0);
+	}
+
+	private void teq(byte rd, int op1, int op2) {
+		int val = op1 ^ op2;
+		cpu.cpsr.negative = (val < 0);
+		cpu.cpsr.zero = (val == 0);
+	}
+
+	private void cmp(byte rd, int op1, int op2) {
+		cpu.setSubFlags(op1, op2);
+	}
+
+	private void cmn(byte rd, int op1, int op2) {
+		cpu.setAddFlags(op1, op2);
+	}
+
+	private void orrs(byte rd, int op1, int op2) {
+		int val = op1 | op2;
+		cpu.cpsr.negative = (val < 0);
+		cpu.cpsr.zero = (val == 0);
+		setRegSafeCPSR(rd, val);
+	}
+
+	private void movs(byte rd, int op1, int op2) {
+		cpu.cpsr.negative = (op2 < 0);
+		cpu.cpsr.zero = (op2 == 0);
+		setRegSafeCPSR(rd, op2);
+	}
+
+	private void bics(byte rd, int op1, int op2) {
+		int val = op1 & ~op2;
+		cpu.cpsr.negative = (val < 0);
+		cpu.cpsr.zero = (val == 0);
+		setRegSafeCPSR(rd, val);
+	}
+
+	private void mvns(byte rd, int op1, int op2) {
+		op2 = ~op2;
+		cpu.cpsr.negative = (op2 < 0);
+		cpu.cpsr.zero = (op2 == 0);
+		setRegSafeCPSR(rd, op2);
 	}
 
 	private void dataProc(byte top, byte midTop, byte midBot, byte bot) {

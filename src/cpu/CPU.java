@@ -22,7 +22,7 @@ public class CPU {
 	 * Halfword - 16 bit data
 	 * Word - 32 bit data
 	 */
-	protected final int[][] regs =  {
+	private final int[][] regs =  {
 			{ 0 }, //r0
 			{ 0 }, //r1
 			{ 0 }, //r2
@@ -41,7 +41,7 @@ public class CPU {
 			{ 0 } //r15 (PC) - PROGRAM COUNTER
 	};
 
-	protected final int[] spsr = { 0, 0, 0, 0, 0 }; // SPSR (Saved Program Status Register - PRIVELEGED ONLY): SPSR_fiq, SPSR_svc, SPSR_abt, SPSR_irq, SPSR_und
+	private final int[] spsr = { 0, 0, 0, 0, 0 }; // SPSR (Saved Program Status Register - PRIVELEGED ONLY): SPSR_fiq, SPSR_irq, SPSR_svc, SPSR_abt, SPSR_und
 
 	private final ARMProcessor arm;
 	private final THUMBProcessor thumb;
@@ -55,6 +55,15 @@ public class CPU {
 		arm = new ARMProcessor(this);
 		thumb = new THUMBProcessor(this);
 		cpsr = new CPSR();
+	}
+	
+	/**
+	 * Load CPSR from current SPSR register. Should not be called from USER mode.
+	 */
+	protected void loadCPSR() {
+		int index = cpsr.mapSPSRRegister();
+		if (index != -1) 
+			cpsr.load(spsr[index]);
 	}
 
 	/**
@@ -206,10 +215,6 @@ public class CPU {
 	
 	protected void undefinedInstr() {
 		
-	}
-
-	protected int getStatusReg(int num) {
-		return 0;
 	}
 
 	protected byte accessROM(int pc) {

@@ -87,6 +87,10 @@ public class CPSR {
 		return HIGH_REG_MAP[reg & 0x7][mode & 0xF];
 	}
 	
+	public int mapSPSRRegister() {
+		return R13_R14_MAP[mode & 0xF] - 1;
+	}
+	
 	public void load(int cpsr) {
 		negative = (cpsr & 0x80000000) == 0x80000000;
 		zero = (cpsr & 0x40000000) == 0x40000000;
