@@ -17,6 +17,10 @@ public class CPU {
 	 * Register 13 is the stack pointer.
 	 * Register 14 is the link registers.
 	 * Register 15 is the program counter.
+	 * 
+	 * Byte - 8 bit data
+	 * Halfword - 16 bit data
+	 * Word - 32 bit data
 	 */
 	protected final int[][] regs =  {
 			{ 0 }, //r0
@@ -43,6 +47,9 @@ public class CPU {
 	private final THUMBProcessor thumb;
 
 	protected final CPSR cpsr; //CPSR (CONDITION CODE FLAGS AND CURRENT MODE BITS)
+	
+	private int pc;
+	private boolean branched;
 
 	public CPU() {
 		arm = new ARMProcessor(this);
@@ -163,7 +170,7 @@ public class CPU {
 	}
 	
 	protected void branch(int address) {
-		//TODO
+		//TODO Update the PC and set branched to true
 	}
 	
 	protected int read32(int address) {
