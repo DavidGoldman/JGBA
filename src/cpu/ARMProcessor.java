@@ -1,5 +1,22 @@
 package cpu;
 
+import static cpu.ARMDataOpCode.ADC;
+import static cpu.ARMDataOpCode.ADD;
+import static cpu.ARMDataOpCode.AND;
+import static cpu.ARMDataOpCode.BIC;
+import static cpu.ARMDataOpCode.CMN;
+import static cpu.ARMDataOpCode.CMP;
+import static cpu.ARMDataOpCode.EOR;
+import static cpu.ARMDataOpCode.MOV;
+import static cpu.ARMDataOpCode.MVN;
+import static cpu.ARMDataOpCode.ORR;
+import static cpu.ARMDataOpCode.RSB;
+import static cpu.ARMDataOpCode.RSC;
+import static cpu.ARMDataOpCode.SBC;
+import static cpu.ARMDataOpCode.SUB;
+import static cpu.ARMDataOpCode.TEQ;
+import static cpu.ARMDataOpCode.TST;
+
 public class ARMProcessor implements CPU.IProcessor {
 
 	private final CPU cpu;
@@ -31,7 +48,7 @@ public class ARMProcessor implements CPU.IProcessor {
 			switch(bit27_to_24) {
 			case 0x0:
 				if ((bot & 0x10) == 0 || (bot & 0x80) == 0) //Bit 4 or bit 7 clear
-					dataProcPSR(top, midTop, midBot, bot);
+					dataProcessing(top, midTop, midBot, bot);
 				else if ((bot & 0x60) == 0) { //Bit 6,5 are CLEAR
 					if ((bit23_to_20 & 0xC) == 0)
 						multiply(midTop, midBot, bot);
@@ -53,7 +70,7 @@ public class ARMProcessor implements CPU.IProcessor {
 				if (midTop == (byte)0x2F && midBot == (byte)0xFF && (bot & 0xF0) == 0x10) //0x12FFF1, Rn
 					branchAndExchange((byte) (bot & 0xF));
 				else if ((bot & 0x10) == 0 || (bot & 0x80) == 0) //Bit 4 or bit 7 clear
-					dataProcPSR(top, midTop, midBot, bot); 
+					dataProcessing(top, midTop, midBot, bot); 
 				else if ((bot & 0x60) == 0) { //Bit 6,5 are CLEAR
 					if ((bit23_to_20 & 0xB) == 0 && (midBot & 0xF) == 0) //Bit 27-25 CLEAR, Bit 24 SET, BIT 23,21,20 CLEAR, Bit 11-8 CLEAR
 						singleDataSwap(midTop, midBot, bot);
@@ -69,8 +86,8 @@ public class ARMProcessor implements CPU.IProcessor {
 						; //TODO Undefined
 				}
 				break;
-			case 0x2: dataProcPSR(top, midTop, midBot, bot); break;
-			case 0x3: dataProcPSR(top, midTop, midBot, bot); break;
+			case 0x2: dataProcessing(top, midTop, midBot, bot); break;
+			case 0x3: dataProcessing(top, midTop, midBot, bot); break;
 			case 0x4: singleDataTransferImmPost(midTop, midBot, bot); break;
 			case 0x5: singleDataTransferImmPre(midTop, midBot, bot); break;
 			case 0x6: 
@@ -113,8 +130,46 @@ public class ARMProcessor implements CPU.IProcessor {
 		}
 	}
 
-	private void dataProcPSR(byte top, byte midTop, byte midBot, byte bot) {
+	private void dataProcessing(byte top, byte midTop, byte midBot, byte bot) {
+		if ((midTop & 0x10) == 0x10) //Bit 20 SET
+			dataProcS(top, midTop, midBot, bot);
+		else
+			dataProc(top, midTop, midBot, bot);
+	}
 
+	private void dataProcS(byte top, byte midTop, byte midBot, byte bot) {
+		//Opcode is bit 24-21
+		byte opcode = (byte) (((top & 0x1) << 3) | ((midTop & 0xE0) >>> 5)); 
+		int op1 = cpu.getReg(midTop); //Rn is the last 4 bits of midTop
+		byte rd = (byte) ((midBot & 0xF0) >>> 4);
+		int op2 = getOp2(midBot, bot);
+		switch(opcode) { //TODO Implement methods
+		case AND: ands(rd, op1, op2); break;
+		case EOR: eors(rd, op1, op2); break;
+		case SUB: subs(rd, op1, op2); break;
+		case RSB: rsbs(rd, op1, op2); break;
+		case ADD: adds(rd, op1, op2); break;
+		case ADC: adcs(rd, op1, op2); break;
+		case SBC: sbcs(rd, op1, op2); break;
+		case RSC: rscs(rd, op1, op2); break;
+		case TST: tst(rd, op1, op2); break;
+		case TEQ: teq(rd, op1, op2); break;
+		case CMP: cmp(rd, op1, op2); break;
+		case CMN: cmn(rd, op1, op2); break;
+		case ORR: orrs(rd, op1, op2); break;
+		case MOV: movs(rd, op1, op2); break;
+		case BIC: bics(rd, op1, op2); break;
+		case MVN: mvns(rd, op1, op2); break;
+		}
+	}
+
+	private void dataProc(byte top, byte midTop, byte midBot, byte bot) {
+		
+	}
+	
+	private int getOp2(byte midBot, byte bot) {
+		//TODO
+		return 0;
 	}
 
 	private void multiply(byte midTop, byte midBot, byte bot) {
