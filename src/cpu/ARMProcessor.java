@@ -151,20 +151,70 @@ public class ARMProcessor implements CPU.IProcessor {
 		}
 	}
 
-	//TODO
+	//TODO Handle PSR/MSR transfers
 	private void dataProcessingReg(byte top, byte midTop, byte midBot, byte bot) {
+		byte opcode = (byte) (((top & 0x1) << 3) | ((midTop & 0xE0) >>> 5));
+		int op1 = getRegDelayedPC(midTop); //Reg shift delays PC read
+		byte rd = (byte) ((midBot & 0xF0) >>> 4);
+		int op2 = 0; //TODO
 		if ((midTop & 0x10) == 0x10) //Bit 20 SET
-			;
+			dataProcS(opcode, rd, op1, op2);
 		else
-			;
+			dataProc(opcode, rd, op1, op2);
 	}
 	
-	//TODO
+	//TODO Handle PSR/MSR transfers
 	private void dataProcessingImm(byte top, byte midTop, byte midBot, byte bot) {
+		byte opcode = (byte) (((top & 0x1) << 3) | ((midTop & 0xE0) >>> 5));
+		int op1 = cpu.getReg(midTop);
+		byte rd = (byte) ((midBot & 0xF0) >>> 4);
+		int op2 = 0; //TODO
 		if ((midTop & 0x10) == 0x10) //Bit 20 SET
-			;
+			dataProcS(opcode, rd, op1, op2);
 		else
-			;
+			dataProc(opcode, rd, op1, op2);
+	}
+	
+	private void dataProcS(byte opcode, byte rd, int op1, int op2) {
+		switch(opcode) {
+		case AND: ands(rd, op1, op2); break;
+		case EOR: eors(rd, op1, op2); break;
+		case SUB: subs(rd, op1, op2); break;
+		case RSB: rsbs(rd, op1, op2); break;
+		case ADD: adds(rd, op1, op2); break;
+		case ADC: adcs(rd, op1, op2); break;
+		case SBC: sbcs(rd, op1, op2); break;
+		case RSC: rscs(rd, op1, op2); break;
+		case TST: tst(rd, op1, op2); break;
+		case TEQ: teq(rd, op1, op2); break;
+		case CMP: cmp(rd, op1, op2); break;
+		case CMN: cmn(rd, op1, op2); break;
+		case ORR: orrs(rd, op1, op2); break;
+		case MOV: movs(rd, op1, op2); break;
+		case BIC: bics(rd, op1, op2); break;
+		case MVN: mvns(rd, op1, op2); break;
+		}
+	}
+	
+	private void dataProc(byte opcode, byte rd, int op1, int op2) {
+		switch(opcode) {
+		case AND: and(rd, op1, op2); break;
+		case EOR: eor(rd, op1, op2); break;
+		case SUB: sub(rd, op1, op2); break;
+		case RSB: rsb(rd, op1, op2); break;
+		case ADD: add(rd, op1, op2); break;
+		case ADC: adc(rd, op1, op2); break;
+		case SBC: sbc(rd, op1, op2); break;
+		case RSC: rsc(rd, op1, op2); break;
+		case TST: break; //Special cases
+		case TEQ: break; //Handled by PSR transfers
+		case CMP: break; 
+		case CMN: break;
+		case ORR: orr(rd, op1, op2); break;
+		case MOV: mov(rd, op1, op2); break;
+		case BIC: bic(rd, op1, op2); break;
+		case MVN: mvn(rd, op1, op2); break;
+		}
 	}
 
 	/* OLD DATA PROC
