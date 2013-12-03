@@ -69,7 +69,7 @@ public class ARMProcessor implements CPU.IProcessor {
 			switch(bit27_to_24) {
 			case 0x0:
 				if ((bot & 0x10) == 0 || (bot & 0x80) == 0) //Bit 4 or bit 7 clear
-					dataProcessing(top, midTop, midBot, bot);
+					dataProcessingReg(top, midTop, midBot, bot);
 				else if ((bot & 0x60) == 0) { //Bit 6,5 are CLEAR
 					if ((bit23_to_20 & 0xC) == 0)
 						multiply(midTop, midBot, bot);
@@ -91,7 +91,7 @@ public class ARMProcessor implements CPU.IProcessor {
 				if (midTop == (byte)0x2F && midBot == (byte)0xFF && (bot & 0xF0) == 0x10) //0x12FFF1, Rn
 					branchAndExchange((byte) (bot & 0xF));
 				else if ((bot & 0x10) == 0 || (bot & 0x80) == 0) //Bit 4 or bit 7 clear
-					dataProcessing(top, midTop, midBot, bot); 
+					dataProcessingReg(top, midTop, midBot, bot); 
 				else if ((bot & 0x60) == 0) { //Bit 6,5 are CLEAR
 					if ((bit23_to_20 & 0xB) == 0 && (midBot & 0xF) == 0) //Bit 27-25 CLEAR, Bit 24 SET, BIT 23,21,20 CLEAR, Bit 11-8 CLEAR
 						singleDataSwap(midTop, midBot, bot);
@@ -107,8 +107,8 @@ public class ARMProcessor implements CPU.IProcessor {
 						; //TODO Undefined
 				}
 				break;
-			case 0x2: dataProcessing(top, midTop, midBot, bot); break;
-			case 0x3: dataProcessing(top, midTop, midBot, bot); break;
+			case 0x2: dataProcessingImm(top, midTop, midBot, bot); break;
+			case 0x3: dataProcessingImm(top, midTop, midBot, bot); break;
 			case 0x4: singleDataTransferImmPost(midTop, midBot, bot); break;
 			case 0x5: singleDataTransferImmPre(midTop, midBot, bot); break;
 			case 0x6: 
@@ -151,14 +151,23 @@ public class ARMProcessor implements CPU.IProcessor {
 		}
 	}
 
-	private void dataProcessing(byte top, byte midTop, byte midBot, byte bot) {
+	//TODO
+	private void dataProcessingReg(byte top, byte midTop, byte midBot, byte bot) {
 		if ((midTop & 0x10) == 0x10) //Bit 20 SET
-			dataProcS(top, midTop, midBot, bot);
+			;
 		else
-			dataProc(top, midTop, midBot, bot);
+			;
+	}
+	
+	//TODO
+	private void dataProcessingImm(byte top, byte midTop, byte midBot, byte bot) {
+		if ((midTop & 0x10) == 0x10) //Bit 20 SET
+			;
+		else
+			;
 	}
 
-	private void dataProcS(byte top, byte midTop, byte midBot, byte bot) {
+	/* OLD DATA PROC
 		boolean imm = ((top & 0x2) == 0x2); //Immediate or register shift
 		//Opcode is bit 24-21
 		byte opcode = (byte) (((top & 0x1) << 3) | ((midTop & 0xE0) >>> 5)); 
@@ -185,7 +194,25 @@ public class ARMProcessor implements CPU.IProcessor {
 		case BIC: bics(rd, op1, op2); break;
 		case MVN: mvns(rd, op1, op2); break;
 		}
+		
+		private int getOpS(boolean imm, byte midBot, byte bot) {
+		if (!imm) {
+			byte op = (byte) ((bot & 0x60) >>> 5); //Shift is either bottom byte of register or 5 bit immediate value
+			int shift = ((bot & 0x10) == 0x10) ? (cpu.getReg(midBot) & 0xFF) : (((midBot & 0xF) << 1) | ((bot & 0x80) >>> 7));
+			if ((bot & 0x10) == 0 && shift == 0 && op != 0) //If LSR/ASR/ROR immediate with val = 0, val actually = 32
+				shift = 32;
+			int rm = getRegDelayedPC(bot);
+			switch(op) {
+			case 0: return lsls(rm, shift);
+			case 1: return lsrs(rm, shift);
+			case 2: return asrs(rm, shift);
+			case 3: return rors(rm, shift);
+			}
+		}
+		//Otherwise Rotate immediate value
+		return rors(bot & 0xFF, (midBot & 0xF)*2); 
 	}
+	*/
 
 	private void ands(byte rd, int op1, int op2) {
 		int val = op1 & op2;
@@ -270,85 +297,6 @@ public class ARMProcessor implements CPU.IProcessor {
 		cpu.cpsr.negative = (op2 < 0);
 		cpu.cpsr.zero = (op2 == 0);
 		setRegSafeCPSR(rd, op2);
-	}
-
-	private void dataProc(byte top, byte midTop, byte midBot, byte bot) {
-
-	}
-
-	private int getOpS(boolean imm, byte midBot, byte bot) {
-		if (!imm) {
-			byte op = (byte) ((bot & 0x60) >>> 5); //Shift is either bottom byte of register or 5 bit immediate value
-			int shift = ((bot & 0x10) == 0x10) ? (cpu.getReg(midBot) & 0xF) : (((midBot & 0xF) << 1) | ((bot & 0x80) >>> 7));
-			int rm = getRegDelayedPC(bot);
-			switch(op) {
-			case 0: return lsls(rm, shift);
-			case 1: return lsrs(rm, shift);
-			case 2: return asrs(rm, shift);
-			case 3: return rors(rm, shift);
-			}
-		}
-		//Otherwise Rotate immediate value
-		return rors(bot & 0xFF, (midBot & 0xF)*2); 
-	}
-
-	private int lsls(int val, int shift) {
-		if (shift != 0) { //Carry not affected by 0
-			//Carry set by the last bit shifted out (=sign of the value shifted one less)
-			cpu.cpsr.carry = ((val << (shift-1)) < 0);
-			val <<= shift;
-		}
-		cpu.cpsr.negative = (val < 0);
-		cpu.cpsr.zero = (val == 0);
-		return val;
-	}
-
-	private int lsrs(int val, int shift){
-		if (shift != 0) {
-			//Carry set by the last bit shifted out (= 0 bit of the value shifted one less)
-			cpu.cpsr.carry = (((val >>> (shift - 1)) & 0x1) == 0x1);
-			val >>>= shift;
-		}
-		else {
-			//This is actually LSRS #32 (page 13 of ARM pdf), thus carry = sign bit, value becomes 0
-			cpu.cpsr.carry = (val < 0);
-			val = 0;
-		}
-		cpu.cpsr.negative = (val < 0);
-		cpu.cpsr.zero = (val == 0);
-		return val;
-	}
-
-	private int asrs(int val, int shift) {
-		if (shift != 0) {
-			//Carry set by the last bit shifted out (= 0 bit of the value shifted one less)
-			cpu.cpsr.carry = (((val >> (shift - 1)) & 0x1) == 0x1);
-			val >>= shift;
-		}
-		else {
-			//This is actually ASRS #32 (page 13 of ARM pdf), thus carry = sign bit, value becomes either all 0's or all 1's
-			cpu.cpsr.carry = (val < 0);
-			val >>= 31;
-		}
-		cpu.cpsr.negative = (val < 0);
-		cpu.cpsr.zero = (val == 0);
-		return val;
-	}
-
-	private int rors(int val, int rotate) {
-		if (rotate > 0) {
-			rotate = rotate & 0x1F; //If rotate >32, we subtract 32 until in range [0-31] -> same as & 0x1F (31)
-			if (rotate > 0) { //Carry is the last bit rotated out
-				cpu.cpsr.carry = (((val >>> (rotate - 1)) & 0x1) == 0x1);
-				//Val is the remaining bits from the shift and the removed bits shifted to the left
-				val = (val >>> rotate) | (val << (32-rotate));
-			}
-			else //ROR 32, carry equal to sign bit
-				cpu.cpsr.carry = (val < 0);
-		}
-		cpu.cpsr.negative = (val < 0);
-		cpu.cpsr.zero = (val == 0);
-		return val;
 	}
 
 	private void multiply(byte midTop, byte midBot, byte bot) {
