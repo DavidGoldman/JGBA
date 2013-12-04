@@ -263,12 +263,20 @@ public class ARMProcessor implements CPU.IProcessor {
 		return rors(bot & 0xFF, (midBot & 0xF)*2); 
 	}
 	*/
+	
+	private void and(byte rd, int op1, int op2) {
+		setRegSafe(rd, op1 & op2);
+	}
 
 	private void ands(byte rd, int op1, int op2) {
 		int val = op1 & op2;
 		cpu.cpsr.negative = (val < 0);
 		cpu.cpsr.zero = (val == 0);
 		setRegSafeCPSR(rd, val);
+	}
+	
+	private void eor(byte rd, int op1, int op2) {
+		setRegSafe(rd, op1 ^ op2);
 	}
 
 	private void eors(byte rd, int op1, int op2) {
@@ -277,25 +285,49 @@ public class ARMProcessor implements CPU.IProcessor {
 		cpu.cpsr.zero = (val == 0);
 		setRegSafeCPSR(rd, val);
 	}
+	
+	private void sub(byte rd, int op1, int op2) {
+		setRegSafe(rd, op1 - op2);
+	}
 
 	private void subs(byte rd, int op1, int op2) {
 		setRegSafeCPSR(rd, cpu.setSubFlags(op1, op2));
+	}
+	
+	private void rsb(byte rd, int op1, int op2) {
+		setRegSafe(rd, op2 - op1);
 	}
 
 	private void rsbs(byte rd, int op1, int op2) {
 		setRegSafeCPSR(rd, cpu.setSubFlags(op2, op1));
 	}
+	
+	private void add(byte rd, int op1, int op2) {
+		setRegSafe(rd, op1 + op2);
+	}
 
 	private void adds(byte rd, int op1, int op2) {
 		setRegSafeCPSR(rd, cpu.setAddFlags(op1, op2));
+	}
+	
+	private void adc(byte rd, int op1, int op2) {
+		setRegSafe(rd, op1 + op2 + ((cpu.cpsr.carry) ? 1 : 0));
 	}
 
 	private void adcs(byte rd, int op1, int op2) {
 		setRegSafeCPSR(rd, cpu.setAddCarryFlags(op1, op2));
 	}
+	
+	private void sbc(byte rd, int op1, int op2) {
+		setRegSafe(rd, op1 - op2 - ((cpu.cpsr.carry) ? 0 : 1));
+	}
 
 	private void sbcs(byte rd, int op1, int op2) {
 		setRegSafeCPSR(rd, cpu.setSubCarryFlags(op1, op2));
+	}
+	
+	private void rsc(byte rd, int op1, int op2) {
+		setRegSafe(rd, op2 - op1 - ((cpu.cpsr.carry) ? 0 : 1));
 	}
 
 	private void rscs(byte rd, int op1, int op2) {
@@ -321,6 +353,10 @@ public class ARMProcessor implements CPU.IProcessor {
 	private void cmn(byte rd, int op1, int op2) {
 		cpu.setAddFlags(op1, op2);
 	}
+	
+	private void orr(byte rd, int op1, int op2) {
+		setRegSafe(rd, op1 | op2);
+	}
 
 	private void orrs(byte rd, int op1, int op2) {
 		int val = op1 | op2;
@@ -328,11 +364,19 @@ public class ARMProcessor implements CPU.IProcessor {
 		cpu.cpsr.zero = (val == 0);
 		setRegSafeCPSR(rd, val);
 	}
+	
+	private void mov(byte rd, int op1, int op2) {
+		setRegSafe(rd, op2);
+	}
 
 	private void movs(byte rd, int op1, int op2) {
 		cpu.cpsr.negative = (op2 < 0);
 		cpu.cpsr.zero = (op2 == 0);
 		setRegSafeCPSR(rd, op2);
+	}
+	
+	private void bic(byte rd, int op1, int op2) {
+		setRegSafe(rd, op1 & ~op2);
 	}
 
 	private void bics(byte rd, int op1, int op2) {
@@ -340,6 +384,10 @@ public class ARMProcessor implements CPU.IProcessor {
 		cpu.cpsr.negative = (val < 0);
 		cpu.cpsr.zero = (val == 0);
 		setRegSafeCPSR(rd, val);
+	}
+	
+	private void mvn(byte rd, int op1, int op2) {
+		setRegSafe(rd, ~op2);
 	}
 
 	private void mvns(byte rd, int op1, int op2) {
