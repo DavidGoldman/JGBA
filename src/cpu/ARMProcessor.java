@@ -162,19 +162,34 @@ public class ARMProcessor implements CPU.IProcessor {
 		else
 			dataProc(opcode, rd, op1, op2);
 	}
-	
+
 	//TODO Handle PSR/MSR transfers
 	private void dataProcessingImm(byte top, byte midTop, byte midBot, byte bot) {
 		byte opcode = (byte) (((top & 0x1) << 3) | ((midTop & 0xE0) >>> 5));
 		int op1 = cpu.getReg(midTop);
 		byte rd = (byte) ((midBot & 0xF0) >>> 4);
-		int op2 = 0; //TODO
 		if ((midTop & 0x10) == 0x10) //Bit 20 SET
-			dataProcS(opcode, rd, op1, op2);
+			dataProcS(opcode, rd, op1, immOpS(bot & 0xFF, midBot & 0xF));
 		else
-			dataProc(opcode, rd, op1, op2);
+			dataProc(opcode, rd, op1, immOp(bot & 0xFF, midBot & 0xF));
 	}
-	
+
+	private int immOp(int val, int rotate) {
+		rotate = rotate * 2; //ROR by twice the value passed in 
+		if (rotate > 0) 
+			val = (val >>> rotate) | (val << (32-rotate));
+		return val;
+	}
+
+	private int immOpS(int val, int rotate) {
+		rotate = rotate * 2; //ROR by twice the value passed in 
+		if (rotate > 0) {
+			cpu.cpsr.carry = (((val >>> (rotate - 1)) & 0x1) == 0x1);
+			val = (val >>> rotate) | (val << (32-rotate));
+		}
+		return val;
+	}
+
 	private void dataProcS(byte opcode, byte rd, int op1, int op2) {
 		switch(opcode) {
 		case AND: ands(rd, op1, op2); break;
@@ -195,7 +210,7 @@ public class ARMProcessor implements CPU.IProcessor {
 		case MVN: mvns(rd, op1, op2); break;
 		}
 	}
-	
+
 	private void dataProc(byte opcode, byte rd, int op1, int op2) {
 		switch(opcode) {
 		case AND: and(rd, op1, op2); break;
@@ -244,7 +259,7 @@ public class ARMProcessor implements CPU.IProcessor {
 		case BIC: bics(rd, op1, op2); break;
 		case MVN: mvns(rd, op1, op2); break;
 		}
-		
+
 		private int getOpS(boolean imm, byte midBot, byte bot) {
 		if (!imm) {
 			byte op = (byte) ((bot & 0x60) >>> 5); //Shift is either bottom byte of register or 5 bit immediate value
@@ -262,8 +277,8 @@ public class ARMProcessor implements CPU.IProcessor {
 		//Otherwise Rotate immediate value
 		return rors(bot & 0xFF, (midBot & 0xF)*2); 
 	}
-	*/
-	
+	 */
+
 	private void and(byte rd, int op1, int op2) {
 		setRegSafe(rd, op1 & op2);
 	}
@@ -274,7 +289,7 @@ public class ARMProcessor implements CPU.IProcessor {
 		cpu.cpsr.zero = (val == 0);
 		setRegSafeCPSR(rd, val);
 	}
-	
+
 	private void eor(byte rd, int op1, int op2) {
 		setRegSafe(rd, op1 ^ op2);
 	}
@@ -285,7 +300,7 @@ public class ARMProcessor implements CPU.IProcessor {
 		cpu.cpsr.zero = (val == 0);
 		setRegSafeCPSR(rd, val);
 	}
-	
+
 	private void sub(byte rd, int op1, int op2) {
 		setRegSafe(rd, op1 - op2);
 	}
@@ -293,7 +308,7 @@ public class ARMProcessor implements CPU.IProcessor {
 	private void subs(byte rd, int op1, int op2) {
 		setRegSafeCPSR(rd, cpu.setSubFlags(op1, op2));
 	}
-	
+
 	private void rsb(byte rd, int op1, int op2) {
 		setRegSafe(rd, op2 - op1);
 	}
@@ -301,7 +316,7 @@ public class ARMProcessor implements CPU.IProcessor {
 	private void rsbs(byte rd, int op1, int op2) {
 		setRegSafeCPSR(rd, cpu.setSubFlags(op2, op1));
 	}
-	
+
 	private void add(byte rd, int op1, int op2) {
 		setRegSafe(rd, op1 + op2);
 	}
@@ -309,7 +324,7 @@ public class ARMProcessor implements CPU.IProcessor {
 	private void adds(byte rd, int op1, int op2) {
 		setRegSafeCPSR(rd, cpu.setAddFlags(op1, op2));
 	}
-	
+
 	private void adc(byte rd, int op1, int op2) {
 		setRegSafe(rd, op1 + op2 + ((cpu.cpsr.carry) ? 1 : 0));
 	}
@@ -317,7 +332,7 @@ public class ARMProcessor implements CPU.IProcessor {
 	private void adcs(byte rd, int op1, int op2) {
 		setRegSafeCPSR(rd, cpu.setAddCarryFlags(op1, op2));
 	}
-	
+
 	private void sbc(byte rd, int op1, int op2) {
 		setRegSafe(rd, op1 - op2 - ((cpu.cpsr.carry) ? 0 : 1));
 	}
@@ -325,7 +340,7 @@ public class ARMProcessor implements CPU.IProcessor {
 	private void sbcs(byte rd, int op1, int op2) {
 		setRegSafeCPSR(rd, cpu.setSubCarryFlags(op1, op2));
 	}
-	
+
 	private void rsc(byte rd, int op1, int op2) {
 		setRegSafe(rd, op2 - op1 - ((cpu.cpsr.carry) ? 0 : 1));
 	}
@@ -353,7 +368,7 @@ public class ARMProcessor implements CPU.IProcessor {
 	private void cmn(byte rd, int op1, int op2) {
 		cpu.setAddFlags(op1, op2);
 	}
-	
+
 	private void orr(byte rd, int op1, int op2) {
 		setRegSafe(rd, op1 | op2);
 	}
@@ -364,7 +379,7 @@ public class ARMProcessor implements CPU.IProcessor {
 		cpu.cpsr.zero = (val == 0);
 		setRegSafeCPSR(rd, val);
 	}
-	
+
 	private void mov(byte rd, int op1, int op2) {
 		setRegSafe(rd, op2);
 	}
@@ -374,7 +389,7 @@ public class ARMProcessor implements CPU.IProcessor {
 		cpu.cpsr.zero = (op2 == 0);
 		setRegSafeCPSR(rd, op2);
 	}
-	
+
 	private void bic(byte rd, int op1, int op2) {
 		setRegSafe(rd, op1 & ~op2);
 	}
@@ -385,7 +400,7 @@ public class ARMProcessor implements CPU.IProcessor {
 		cpu.cpsr.zero = (val == 0);
 		setRegSafeCPSR(rd, val);
 	}
-	
+
 	private void mvn(byte rd, int op1, int op2) {
 		setRegSafe(rd, ~op2);
 	}
