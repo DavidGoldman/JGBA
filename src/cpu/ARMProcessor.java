@@ -234,7 +234,7 @@ public class ARMProcessor implements CPU.IProcessor {
 	private int rorr(byte rm, byte rs) {
 		int reg = getRegDelayedPC(rm);
 		int shift = getRegDelayedPC(rs) & 0x1F;
-		return (shift > 0) ? (reg >>> shift) | (reg << (32 - shift)) : 0;
+		return (shift > 0) ? (reg >>> shift) | (reg << (32 - shift)) : reg;
 	}
 
 	private int getOp2S(byte shift, byte rm) {
