@@ -151,27 +151,113 @@ public class ARMProcessor implements CPU.IProcessor {
 		}
 	}
 
-	//TODO Handle PSR/MSR transfers
 	private void dataProcessingReg(byte top, byte midTop, byte midBot, byte bot) {
 		byte opcode = (byte) (((top & 0x1) << 3) | ((midTop & 0xE0) >>> 5));
-		int op1 = getRegDelayedPC(midTop); //Reg shift delays PC read
 		byte rd = (byte) ((midBot & 0xF0) >>> 4);
-		int op2 = 0; //TODO
+		byte shift = (byte) (((midBot & 0xF) << 4) | ((bot & 0xF0) >>> 4));
+		byte rm = (byte) (bot & 0xF);
 		if ((midTop & 0x10) == 0x10) //Bit 20 SET
-			dataProcS(opcode, rd, op1, op2);
-		else
-			dataProc(opcode, rd, op1, op2);
+			dataProcS(opcode, rd, getRegDelayedPC(midTop), getOp2S(shift, rm));
+		else if(opcode >= TST && opcode <= CMN) //PSR Transfer
+			psrTransfer(midTop, midBot, bot);
+		else		
+			dataProc(opcode, rd, getRegDelayedPC(midTop), getOp2(shift, rm));
 	}
 
-	//TODO Handle PSR/MSR transfers
+	private int getOp2(byte shift, byte rm) {
+		byte type = (byte)((shift & 0x6) >>> 1); //type is bit 6-5
+		if ((shift & 0x1) == 0) {//shift unsigned integer
+			int imm5 = ((shift & 0xF8) >>> 3); //bit 11-7
+			switch(type) {
+			case 0: return lsli(rm, imm5);
+			case 1: return lsri(rm, imm5);
+			case 2: return asri(rm, imm5);
+			case 3: return rori(rm, imm5);
+			}
+		}
+		else {
+			byte rs = (byte) ((shift & 0xF0) >>> 4); //rs is bit 11-8
+			switch(type) {
+			case 0: return lslr(rm, rs);
+			case 1: return lsrr(rm, rs);
+			case 2: return asrr(rm, rs);
+			case 3: return rorr(rm, rs);
+			}
+		}
+		//Should never occur
+		throw new RuntimeException();
+		//return 0;
+	}
+
+	private int lsli(byte rm, int imm5) {
+		return cpu.getReg(rm) << imm5;
+	}
+
+	private int lsri(byte rm, int imm5) {
+		return (imm5 == 0) ? 0 : cpu.getReg(rm) >>> imm5; //LSR 0 is actually LSR #32
+	}
+
+	private int asri(byte rm, int imm5) {
+		if (imm5 == 0) //ASR 0 is actually ASR #32 -> same as ASR #31 value wise
+			imm5 = 31; 
+		return cpu.getReg(rm) >> imm5;
+	}
+
+	private int rori(byte rm, int imm5) {
+		int reg = cpu.getReg(rm);
+		if (imm5 > 0) //ROR
+			return (reg >>> imm5) | (reg << (32 - imm5));
+		else //RRX
+			return ((cpu.cpsr.carry) ? 0x80000000 : 0) | (reg >>> 1);
+	}
+
+	private int lslr(byte rm, byte rs) {
+		int reg = getRegDelayedPC(rm);
+		int shift = getRegDelayedPC(rs) & 0xFF;
+		return (shift < 32) ? reg << shift : 0;
+	}
+
+	private int lsrr(byte rm, byte rs) {
+		int reg = getRegDelayedPC(rm);
+		int shift = getRegDelayedPC(rs) & 0xFF;
+		return (shift < 32) ? reg >>> shift : 0;
+	}
+
+	private int asrr(byte rm, byte rs) {
+		int reg = getRegDelayedPC(rm);
+		int shift = getRegDelayedPC(rs) & 0xFF;
+		if (shift > 31)
+			shift = 31;
+		return reg >> shift;
+	}
+
+	private int rorr(byte rm, byte rs) {
+		int reg = getRegDelayedPC(rm);
+		int shift = getRegDelayedPC(rs) & 0x1F;
+		return (shift > 0) ? (reg >>> shift) | (reg << (32 - shift)) : 0;
+	}
+
+	private int getOp2S(byte shift, byte rm) {
+		return 0;
+	}
+
 	private void dataProcessingImm(byte top, byte midTop, byte midBot, byte bot) {
 		byte opcode = (byte) (((top & 0x1) << 3) | ((midTop & 0xE0) >>> 5));
-		int op1 = cpu.getReg(midTop);
 		byte rd = (byte) ((midBot & 0xF0) >>> 4);
 		if ((midTop & 0x10) == 0x10) //Bit 20 SET
-			dataProcS(opcode, rd, op1, immOpS(bot & 0xFF, midBot & 0xF));
-		else
-			dataProc(opcode, rd, op1, immOp(bot & 0xFF, midBot & 0xF));
+			dataProcS(opcode, rd, cpu.getReg(midTop), immOpS(bot & 0xFF, midBot & 0xF));
+		else if(opcode >= TST && opcode <= CMN) //PSR Transfer
+			psrTransferImm(midTop, midBot, bot);
+		else		
+			dataProc(opcode, rd, cpu.getReg(midTop), immOp(bot & 0xFF, midBot & 0xF));
+	}
+
+	private void psrTransfer(byte midTop, byte midBot, byte bot) {
+
+	}
+
+	private void psrTransferImm(byte midTop, byte midBot, byte bot) {
+
 	}
 
 	private int immOp(int val, int rotate) {
