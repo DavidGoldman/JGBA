@@ -166,7 +166,7 @@ public class ARMProcessor implements CPU.IProcessor {
 
 	private int getOp2(byte shift, byte rm) {
 		byte type = (byte)((shift & 0x6) >>> 1); //type is bit 6-5
-		if ((shift & 0x1) == 0) {//shift unsigned integer
+		if ((shift & 0x1) == 0) { //shift unsigned integer
 			int imm5 = ((shift & 0xF8) >>> 3); //bit 11-7
 			switch(type) {
 			case 0: return lsli(rm, imm5);
@@ -238,7 +238,145 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	private int getOp2S(byte shift, byte rm) {
-		return 0;
+		byte type = (byte)((shift & 0x6) >>> 1); //type is bit 6-5
+		if ((shift & 0x1) == 0) { //shift unsigned integer
+			int imm5 = ((shift & 0xF8) >>> 3); //bit 11-7
+			switch(type) {
+			case 0: return lslis(rm, imm5);
+			case 1: return lsris(rm, imm5);
+			case 2: return asris(rm, imm5);
+			case 3: return roris(rm, imm5);
+			}
+		}
+		else {
+			byte rs = (byte) ((shift & 0xF0) >>> 4); //rs is bit 11-8
+			switch(type) {
+			case 0: return lslrs(rm, rs);
+			case 1: return lsrrs(rm, rs);
+			case 2: return asrrs(rm, rs);
+			case 3: return rorrs(rm, rs);
+			}
+		}
+		//Should never occur
+		throw new RuntimeException();
+		//return 0;
+	}
+	
+	private int lslis(byte rm, int imm5) {
+		int reg = cpu.getReg(rm);
+		if (imm5 > 0)
+			cpu.cpsr.carry = (reg << (imm5-1) < 0);
+		return reg << imm5;
+	}
+	
+	private int lsris(byte rm, int imm5) {
+		int reg = cpu.getReg(rm);
+		if (imm5 > 0) {
+			cpu.cpsr.carry = (((reg >>> (imm5 - 1)) & 0x1) == 0x1);
+			return reg >>> imm5;
+		}
+		else { //LSR 0 is actually LSR #32
+			cpu.cpsr.carry = (reg < 0);
+			return 0;
+		}
+	}
+	
+	private int asris(byte rm, int imm5) {
+		int reg = cpu.getReg(rm);
+		if (imm5 > 0) {
+			cpu.cpsr.carry = (((reg >>> (imm5 - 1)) & 0x1) == 0x1);
+			return reg >> imm5;
+		}
+		else { //ASR 0 is actually ASR #32
+			cpu.cpsr.carry = (reg < 0);
+			return reg >> 31;
+		}
+	}
+	
+	private int roris(byte rm, int imm5) {
+		int reg = cpu.getReg(rm);
+		if (imm5 > 0) { //ROR
+			cpu.cpsr.carry = (((reg >>> (imm5 - 1)) & 0x1) == 0x1);
+			return (reg >>> imm5) | (reg << (32-imm5));
+		}
+		else { //RRX
+			boolean carry = cpu.cpsr.carry;
+			//Carry is 0 bit
+			cpu.cpsr.carry = ((reg & 0x1) == 0x1);
+			return ((carry) ? 0x80000000 : 0) | (reg >>> 1);
+		}
+	}
+	
+	private int lslrs(byte rm, byte rs) {
+		int reg = getRegDelayedPC(rm);
+		int shift = getRegDelayedPC(rs) & 0xFF;
+		if (shift > 0) {
+			if (shift < 32) { //Shifts <32 are fine, carry is the last bit shifted out
+				cpu.cpsr.carry = (reg << (shift-1) < 0);
+				return reg << shift;
+			}
+			else if (shift == 32) { //We do this manually b/c in Java, shifts are % #bits, carry is the 0 bit
+				cpu.cpsr.carry = ((reg & 0x1) == 0x1); 
+				return 0;
+			}
+			else { //Shift >32, 0's!
+				cpu.cpsr.carry = false;
+				return 0;
+			}
+		}
+		return reg; //0 shift just returns reg
+	}
+	
+	private int lsrrs(byte rm, byte rs) {
+		int reg = getRegDelayedPC(rm);
+		int shift = getRegDelayedPC(rs) & 0xFF;
+		if (shift > 0) {
+			if (shift < 32) { //Shifts <32 are fine, carry is the last bit shifted out
+				cpu.cpsr.carry = (((reg >>> (shift - 1)) & 0x1) == 0x1);
+				return reg >>> shift;
+			}
+			else if (shift == 32) { //We do this manually b/c in Java, shifts are % #bits, carry is sign bit
+				cpu.cpsr.carry = (reg < 0); 
+				return 0;
+			}
+			else { //Shift >32, 0's!
+				cpu.cpsr.carry = false;
+				return 0;
+			}
+		}
+		return reg; //0 shift just returns reg
+	}
+	
+	private int asrrs(byte rm, byte rs) {
+		int reg = getRegDelayedPC(rm);
+		int shift = getRegDelayedPC(rs) & 0xFF;
+		if (shift > 0) {
+			if (shift < 32) { //Shifts <32 are fine, carry is the last bit shifted out
+				cpu.cpsr.carry = (((reg >> (shift - 1)) & 0x1) == 0x1);
+				return reg >> shift;
+			}
+			else { //Shift >=32, carry is equal to the sign bit, value becomes either all 1's or 0's
+				cpu.cpsr.carry = (reg < 0);
+				return reg >> 31;
+			}
+		}
+		return reg; //0 shift just returns reg
+	}
+	
+	private int rorrs(byte rm, byte rs) {
+		int reg = getRegDelayedPC(rm);
+		int rotate = getRegDelayedPC(rs) & 0xFF;
+		if (rotate > 0) {
+			rotate = rotate & 0x1F; //If rotate >32, we subtract 32 until in range [0-31] -> same as & 0x1F (31)
+			if (rotate > 0) { //Carry is the last bit rotated out
+				cpu.cpsr.carry = (((reg >>> (rotate - 1)) & 0x1) == 0x1);
+				//Val is the remaining bits from the shift and the removed bits shifted to the left
+				return (reg >>> rotate) | (reg << (32-rotate));
+			}
+			else //ROR 32, carry equal to sign bit
+				cpu.cpsr.carry = (reg < 0);
+		}
+		return reg; //0 shift just returns reg
 	}
 
 	private void dataProcessingImm(byte top, byte midTop, byte midBot, byte bot) {
