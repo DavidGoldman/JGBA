@@ -522,7 +522,7 @@ public class THUMBProcessor implements CPU.IProcessor {
 		case 0x3:
 			if (high1)
 				cpu.undefinedInstr();
-			if (high2)
+			else if (high2)
 				branchXLow(source);
 			else
 				branchXHigh(source);

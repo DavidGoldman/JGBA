@@ -69,7 +69,7 @@ public class ARMProcessor implements CPU.IProcessor {
 			switch(bit27_to_24) {
 			case 0x0:
 				if ((bot & 0x10) == 0 || (bot & 0x80) == 0) //Bit 4 or bit 7 clear
-					dataProcessingReg(top, midTop, midBot, bot);
+					dataProcPSRReg(top, midTop, midBot, bot);
 				else if ((bot & 0x60) == 0) { //Bit 6,5 are CLEAR
 					if ((bit23_to_20 & 0xC) == 0)
 						multiply(midTop, midBot, bot);
@@ -91,7 +91,7 @@ public class ARMProcessor implements CPU.IProcessor {
 				if (midTop == (byte)0x2F && midBot == (byte)0xFF && (bot & 0xF0) == 0x10) //0x12FFF1, Rn
 					branchAndExchange((byte) (bot & 0xF));
 				else if ((bot & 0x10) == 0 || (bot & 0x80) == 0) //Bit 4 or bit 7 clear
-					dataProcessingReg(top, midTop, midBot, bot); 
+					dataProcPSRReg(top, midTop, midBot, bot); 
 				else if ((bot & 0x60) == 0) { //Bit 6,5 are CLEAR
 					if ((bit23_to_20 & 0xB) == 0 && (midBot & 0xF) == 0) //Bit 27-25 CLEAR, Bit 24 SET, BIT 23,21,20 CLEAR, Bit 11-8 CLEAR
 						singleDataSwap(midTop, midBot, bot);
@@ -107,8 +107,8 @@ public class ARMProcessor implements CPU.IProcessor {
 						; //TODO Undefined
 				}
 				break;
-			case 0x2: dataProcessingImm(top, midTop, midBot, bot); break;
-			case 0x3: dataProcessingImm(top, midTop, midBot, bot); break;
+			case 0x2: dataProcPSRImm(top, midTop, midBot, bot); break;
+			case 0x3: dataProcPSRImm(top, midTop, midBot, bot); break;
 			case 0x4: singleDataTransferImmPost(midTop, midBot, bot); break;
 			case 0x5: singleDataTransferImmPre(midTop, midBot, bot); break;
 			case 0x6: 
@@ -151,7 +151,7 @@ public class ARMProcessor implements CPU.IProcessor {
 		}
 	}
 
-	private void dataProcessingReg(byte top, byte midTop, byte midBot, byte bot) {
+	private void dataProcPSRReg(byte top, byte midTop, byte midBot, byte bot) {
 		byte opcode = (byte) (((top & 0x1) << 3) | ((midTop & 0xE0) >>> 5));
 		byte rd = (byte) ((midBot & 0xF0) >>> 4);
 		byte shift = (byte) (((midBot & 0xF) << 4) | ((bot & 0xF0) >>> 4));
@@ -379,7 +379,7 @@ public class ARMProcessor implements CPU.IProcessor {
 		return reg; //0 shift just returns reg
 	}
 
-	private void dataProcessingImm(byte top, byte midTop, byte midBot, byte bot) {
+	private void dataProcPSRImm(byte top, byte midTop, byte midBot, byte bot) {
 		byte opcode = (byte) (((top & 0x1) << 3) | ((midTop & 0xE0) >>> 5));
 		byte rd = (byte) ((midBot & 0xF0) >>> 4);
 		if ((midTop & 0x10) == 0x10) //Bit 20 SET
@@ -391,7 +391,7 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	private void psrTransfer(byte midTop, byte midBot, byte bot) {
-
+		
 	}
 
 	private void psrTransferImm(byte midTop, byte midBot, byte bot) {
@@ -455,53 +455,6 @@ public class ARMProcessor implements CPU.IProcessor {
 		case MVN: mvn(rd, op1, op2); break;
 		}
 	}
-
-	/* OLD DATA PROC
-		boolean imm = ((top & 0x2) == 0x2); //Immediate or register shift
-		//Opcode is bit 24-21
-		byte opcode = (byte) (((top & 0x1) << 3) | ((midTop & 0xE0) >>> 5)); 
-
-		int op1 = (imm) ? cpu.getReg(midTop) : getRegDelayedPC(midTop); //If register shift, PC is another 4 ahead
-		byte rd = (byte) ((midBot & 0xF0) >>> 4);
-		int op2 = getOpS(imm, midBot, bot);
-
-		switch(opcode) {
-		case AND: ands(rd, op1, op2); break;
-		case EOR: eors(rd, op1, op2); break;
-		case SUB: subs(rd, op1, op2); break;
-		case RSB: rsbs(rd, op1, op2); break;
-		case ADD: adds(rd, op1, op2); break;
-		case ADC: adcs(rd, op1, op2); break;
-		case SBC: sbcs(rd, op1, op2); break;
-		case RSC: rscs(rd, op1, op2); break;
-		case TST: tst(rd, op1, op2); break;
-		case TEQ: teq(rd, op1, op2); break;
-		case CMP: cmp(rd, op1, op2); break;
-		case CMN: cmn(rd, op1, op2); break;
-		case ORR: orrs(rd, op1, op2); break;
-		case MOV: movs(rd, op1, op2); break;
-		case BIC: bics(rd, op1, op2); break;
-		case MVN: mvns(rd, op1, op2); break;
-		}
-
-		private int getOpS(boolean imm, byte midBot, byte bot) {
-		if (!imm) {
-			byte op = (byte) ((bot & 0x60) >>> 5); //Shift is either bottom byte of register or 5 bit immediate value
-			int shift = ((bot & 0x10) == 0x10) ? (cpu.getReg(midBot) & 0xFF) : (((midBot & 0xF) << 1) | ((bot & 0x80) >>> 7));
-			if ((bot & 0x10) == 0 && shift == 0 && op != 0) //If LSR/ASR/ROR immediate with val = 0, val actually = 32
-				shift = 32;
-			int rm = getRegDelayedPC(bot);
-			switch(op) {
-			case 0: return lsls(rm, shift);
-			case 1: return lsrs(rm, shift);
-			case 2: return asrs(rm, shift);
-			case 3: return rors(rm, shift);
-			}
-		}
-		//Otherwise Rotate immediate value
-		return rors(bot & 0xFF, (midBot & 0xF)*2); 
-	}
-	 */
 
 	private void and(byte rd, int op1, int op2) {
 		setRegSafe(rd, op1 & op2);
