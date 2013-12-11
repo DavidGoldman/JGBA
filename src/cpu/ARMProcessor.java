@@ -261,14 +261,14 @@ public class ARMProcessor implements CPU.IProcessor {
 		throw new RuntimeException();
 		//return 0;
 	}
-	
+
 	private int lslis(byte rm, int imm5) {
 		int reg = cpu.getReg(rm);
 		if (imm5 > 0)
 			cpu.cpsr.carry = (reg << (imm5-1) < 0);
 		return reg << imm5;
 	}
-	
+
 	private int lsris(byte rm, int imm5) {
 		int reg = cpu.getReg(rm);
 		if (imm5 > 0) {
@@ -280,7 +280,7 @@ public class ARMProcessor implements CPU.IProcessor {
 			return 0;
 		}
 	}
-	
+
 	private int asris(byte rm, int imm5) {
 		int reg = cpu.getReg(rm);
 		if (imm5 > 0) {
@@ -292,7 +292,7 @@ public class ARMProcessor implements CPU.IProcessor {
 			return reg >> 31;
 		}
 	}
-	
+
 	private int roris(byte rm, int imm5) {
 		int reg = cpu.getReg(rm);
 		if (imm5 > 0) { //ROR
@@ -306,7 +306,7 @@ public class ARMProcessor implements CPU.IProcessor {
 			return ((carry) ? 0x80000000 : 0) | (reg >>> 1);
 		}
 	}
-	
+
 	private int lslrs(byte rm, byte rs) {
 		int reg = getRegDelayedPC(rm);
 		int shift = getRegDelayedPC(rs) & 0xFF;
@@ -326,7 +326,7 @@ public class ARMProcessor implements CPU.IProcessor {
 		}
 		return reg; //0 shift just returns reg
 	}
-	
+
 	private int lsrrs(byte rm, byte rs) {
 		int reg = getRegDelayedPC(rm);
 		int shift = getRegDelayedPC(rs) & 0xFF;
@@ -346,7 +346,7 @@ public class ARMProcessor implements CPU.IProcessor {
 		}
 		return reg; //0 shift just returns reg
 	}
-	
+
 	private int asrrs(byte rm, byte rs) {
 		int reg = getRegDelayedPC(rm);
 		int shift = getRegDelayedPC(rs) & 0xFF;
@@ -362,7 +362,7 @@ public class ARMProcessor implements CPU.IProcessor {
 		}
 		return reg; //0 shift just returns reg
 	}
-	
+
 	private int rorrs(byte rm, byte rs) {
 		int reg = getRegDelayedPC(rm);
 		int rotate = getRegDelayedPC(rs) & 0xFF;
@@ -402,18 +402,18 @@ public class ARMProcessor implements CPU.IProcessor {
 		else
 			cpu.undefinedInstr();
 	}
-	
+
 	private void mrs(byte reg, boolean spsr) {
 		setRegSafe(reg, (spsr) ? cpu.getSPSR() : cpu.cpsr.save());
 	}
-	
+
 	private void msr(byte reg, boolean spsr) {
 		if (spsr)
 			cpu.setSPSR(cpu.getReg(reg));
 		else
 			cpu.cpsr.load(cpu.getReg(reg));
 	}
-	
+
 	private void msrFLG(int val, boolean spsr) {
 		if (spsr)
 			cpu.modifySPSR(val);
@@ -620,7 +620,38 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	private void multiply(byte midTop, byte midBot, byte bot) {
+		byte as = (byte) ((midTop & 0x30) >>> 4); //accumulate, set bits
+		switch(as){
+		//We don't need to & 0xF -> methods will do it for us
+		case 0: mul(midTop, bot, midBot); break;
+		case 1: muls(midTop, bot, midBot); break;
+		case 2: mla(midTop, bot, midBot, (byte) ((midBot & 0xF0) >>> 4)); break;
+		case 3: mlas(midTop, bot, midBot, (byte) ((midBot & 0xF0) >>> 4)); break;
+		}
+	}
 
+	private void mul(byte rd, byte rm, byte rs) {
+		setRegSafe(rd, cpu.getReg(rm) * cpu.getReg(rs));
+	}
+
+	private void muls(byte rd, byte rm, byte rs) {
+		int val = cpu.getReg(rm) * cpu.getReg(rs);
+		cpu.cpsr.carry = false;
+		cpu.cpsr.negative = (val < 0);
+		cpu.cpsr.zero = (val == 0);
+		setRegSafe(rd, val);
+	}
+	
+	private void mla(byte rd, byte rm, byte rs, byte rn) {
+		setRegSafe(rd, cpu.getReg(rm)*cpu.getReg(rs) + cpu.getReg(rn));
+	}
+	
+	private void mlas(byte rd, byte rm, byte rs, byte rn) {
+		int val = cpu.getReg(rm)*cpu.getReg(rs) + cpu.getReg(rn);
+		cpu.cpsr.carry = false;
+		cpu.cpsr.negative = (val < 0);
+		cpu.cpsr.zero = (val == 0);
+		setRegSafe(rd, val);
 	}
 
 	private void multiplyLong(byte midTop, byte midBot, byte bot) {
