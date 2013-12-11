@@ -641,11 +641,11 @@ public class ARMProcessor implements CPU.IProcessor {
 		cpu.cpsr.zero = (val == 0);
 		setRegSafe(rd, val);
 	}
-	
+
 	private void mla(byte rd, byte rm, byte rs, byte rn) {
 		setRegSafe(rd, cpu.getReg(rm)*cpu.getReg(rs) + cpu.getReg(rn));
 	}
-	
+
 	private void mlas(byte rd, byte rm, byte rs, byte rn) {
 		int val = cpu.getReg(rm)*cpu.getReg(rs) + cpu.getReg(rn);
 		cpu.cpsr.carry = false;
@@ -655,7 +655,78 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	private void multiplyLong(byte midTop, byte midBot, byte bot) {
+		byte sas = (byte) ((midTop & 0x70) >>> 4); //signed, accumulate, set bits
+		switch(sas) {
+		//We don't need to & 0xF -> methods will do it for us
+		case 0: umull(midTop, (byte) ((midBot & 0xF0) >>> 4), bot, midBot); break;
+		case 1: umulls(midTop, (byte) ((midBot & 0xF0) >>> 4), bot, midBot); break;
+		case 2: umlal(midTop, (byte) ((midBot & 0xF0) >>> 4), bot, midBot); break;
+		case 3: umlals(midTop, (byte) ((midBot & 0xF0) >>> 4), bot, midBot); break;
+		case 4: smull(midTop, (byte) ((midBot & 0xF0) >>> 4), bot, midBot); break;
+		case 5: smulls(midTop, (byte) ((midBot & 0xF0) >>> 4), bot, midBot); break;
+		case 6: smlal(midTop, (byte) ((midBot & 0xF0) >>> 4), bot, midBot); break;
+		case 7: smlals(midTop, (byte) ((midBot & 0xF0) >>> 4), bot, midBot); break;
+		}
+	}
+	
+	private void umull(byte rdHi, byte rdLo, byte rm, byte rs) {
+		long result = (cpu.getReg(rm) & 0xFFFFFFFFL)*(cpu.getReg(rs) & 0xFFFFFFFFL);
+		setRegSafe(rdHi, (int) (result >>> 32));
+		setRegSafe(rdLo, (int) result);
+	}
 
+	private void umulls(byte rdHi, byte rdLo, byte rm, byte rs) {
+		long result = (cpu.getReg(rm) & 0xFFFFFFFFL)*(cpu.getReg(rs) & 0xFFFFFFFFL);
+		cpu.cpsr.carry = false;
+		cpu.cpsr.negative = (result < 0);
+		cpu.cpsr.zero = (result == 0);
+		setRegSafe(rdHi, (int) (result >>> 32));
+		setRegSafe(rdLo, (int) result);
+	}
+	
+	private void umlal(byte rdHi, byte rdLo, byte rm, byte rs) {
+		long result = (cpu.getReg(rm) & 0xFFFFFFFFL)*(cpu.getReg(rs) & 0xFFFFFFFFL) + (((cpu.getReg(rdHi) & 0xFFFFFFFFL) << 32) | (cpu.getReg(rdLo) & 0xFFFFFFFFL));
+		setRegSafe(rdHi, (int) (result >>> 32));
+		setRegSafe(rdLo, (int) result);
+	}
+	
+	private void umlals(byte rdHi, byte rdLo, byte rm, byte rs) {
+		long result = (cpu.getReg(rm) & 0xFFFFFFFFL)*(cpu.getReg(rs) & 0xFFFFFFFFL) + (((cpu.getReg(rdHi) & 0xFFFFFFFFL) << 32) | (cpu.getReg(rdLo) & 0xFFFFFFFFL));
+		cpu.cpsr.carry = false;
+		cpu.cpsr.negative = (result < 0);
+		cpu.cpsr.zero = (result == 0);
+		setRegSafe(rdHi, (int) (result >>> 32));
+		setRegSafe(rdLo, (int) result);
+	}
+
+	private void smull(byte rdHi, byte rdLo, byte rm, byte rs) {
+		long result = ((long) cpu.getReg(rm))*cpu.getReg(rs);
+		setRegSafe(rdHi, (int) (result >>> 32));
+		setRegSafe(rdLo, (int) result);
+	}
+
+	private void smulls(byte rdHi, byte rdLo, byte rm, byte rs) {
+		long result = ((long) cpu.getReg(rm))*cpu.getReg(rs);
+		cpu.cpsr.carry = false;
+		cpu.cpsr.negative = (result < 0);
+		cpu.cpsr.zero = (result == 0);
+		setRegSafe(rdHi, (int) (result >>> 32));
+		setRegSafe(rdLo, (int) result);
+	}
+
+	private void smlal(byte rdHi, byte rdLo, byte rm, byte rs) {
+		long result = ((long) cpu.getReg(rm))*cpu.getReg(rs) + (((cpu.getReg(rdHi) & 0xFFFFFFFFL) << 32) | (cpu.getReg(rdLo) & 0xFFFFFFFFL));
+		setRegSafe(rdHi, (int) (result >>> 32));
+		setRegSafe(rdLo, (int) result);
+	}
+
+	private void smlals(byte rdHi, byte rdLo, byte rm, byte rs) {
+		long result = ((long) cpu.getReg(rm))*cpu.getReg(rs) + (((cpu.getReg(rdHi) & 0xFFFFFFFFL) << 32) | (cpu.getReg(rdLo) & 0xFFFFFFFFL));
+		cpu.cpsr.carry = false;
+		cpu.cpsr.negative = (result < 0);
+		cpu.cpsr.zero = (result == 0);
+		setRegSafe(rdHi, (int) (result >>> 32));
+		setRegSafe(rdLo, (int) result);
 	}
 
 	private void singleDataSwap(byte midTop, byte midBot, byte bot) {
