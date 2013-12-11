@@ -1,7 +1,7 @@
 package cpu;
 
 public class CPSR {
-	
+
 	/*
 	 * The mode bit combinations - define the processor's operating mode.
 	 * 
@@ -14,7 +14,7 @@ public class CPSR {
 	public static final byte ABORT = 0x17;
 	public static final byte UNDEFINED = 0x1B;
 	public static final byte SYSTEM = 0x1F;
-	
+
 	public static String modeToString(byte mode) {
 		switch(mode) {
 		case USER: return "USER";
@@ -27,7 +27,7 @@ public class CPSR {
 		default: return "INVALID";
 		}
 	}
-	
+
 	/**
 	 * Map from (mode & 0xF) to its index for the register banks of r13 and r14.
 	 * Therefore, <ul>
@@ -42,7 +42,7 @@ public class CPSR {
 	 * </ul>
 	 */
 	private static final byte[] R13_R14_MAP = { 0, 1, 2, 3, 0, 0, 0, 4, 0, 0, 0, 5, 0, 0, 0, 0 };
-	
+
 	/** 
 	 * Map from (mode & 0xF) to its index for the register banks of r8-r12.
 	 *  Therefore, <ul>
@@ -52,57 +52,66 @@ public class CPSR {
 	 * </ul>
 	 */
 	private static final byte[] R8_TO_R12_MAP = { 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-	
+
 	/**
 	 * Map from (mode & 0xF) to 0 (for the PC).
 	 */
 	private static final byte[] ZERO_MAP = new byte[16]; 
-	
+
 	/**
 	 * Banked register map.
 	 */
 	private static final byte[][] HIGH_REG_MAP = {
 		R8_TO_R12_MAP, R8_TO_R12_MAP, R8_TO_R12_MAP, R8_TO_R12_MAP, R8_TO_R12_MAP, R13_R14_MAP, R13_R14_MAP, ZERO_MAP
 	};
-	
+
 	protected boolean negative; //Negative/Less Than - Bit 31
 	protected boolean zero; //Zero - Bit 30
 	protected boolean carry; //Carry/Borrow/Extend - Bit 29
 	protected boolean overflow; //Overflow - Bit 28
-	
+
 	//Bit 27-8 are RESERVED
-	
+
 	protected boolean irqDisable; //IRQ Interrupt Disable - Bit 7
 	protected boolean fiqDisable; //FIQ Interrupt Disable - Bit 6
 	protected boolean thumb; //THUMB State (if false, ARM state) - Bit 5
-	
+
 	protected byte mode; //5 mode bits - Bit 4-0
-	
+
 	public CPSR() {
 		//TODO Initialize this correctly
 		mode = SUPERVISOR;
 	}
-	
+
 	public int mapHighRegister(byte reg) {
 		return HIGH_REG_MAP[reg & 0x7][mode & 0xF];
 	}
-	
+
 	public int mapSPSRRegister() {
 		return R13_R14_MAP[mode & 0xF] - 1;
 	}
-	
+
 	public void load(int cpsr) {
 		negative = (cpsr & 0x80000000) == 0x80000000;
 		zero = (cpsr & 0x40000000) == 0x40000000;
 		carry = (cpsr & 0x20000000) == 0x20000000;
 		overflow = (cpsr & 0x10000000) == 0x10000000;
-		
-		irqDisable = (cpsr & 0x80) == 0x80;
-		fiqDisable = (cpsr & 0x40) == 0x40;
-		thumb = (cpsr & 0x20) == 0x20;
-		mode = (byte) (cpsr & 0x1F);
+
+		if (mode != USER) {
+			irqDisable = (cpsr & 0x80) == 0x80;
+			fiqDisable = (cpsr & 0x40) == 0x40;
+			//THUMB bit is only set from Branch X
+			mode = (byte) (cpsr & 0x1F);
+		}
 	}
 	
+	public void loadFlagBits(int cpsr) {
+		negative = (cpsr & 0x80000000) == 0x80000000;
+		zero = (cpsr & 0x40000000) == 0x40000000;
+		carry = (cpsr & 0x20000000) == 0x20000000;
+		overflow = (cpsr & 0x10000000) == 0x10000000;
+	}
+
 	public int save() {
 		int result = 0;
 		if (negative)
@@ -113,7 +122,7 @@ public class CPSR {
 			result |= 0x20000000;
 		if (overflow)
 			result |= 0x10000000;
-		
+
 		if (irqDisable)
 			result |= 0x80;
 		if (fiqDisable)

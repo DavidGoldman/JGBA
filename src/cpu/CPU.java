@@ -65,6 +65,32 @@ public class CPU {
 		if (index != -1) 
 			cpsr.load(spsr[index]);
 	}
+	
+	/**
+	 * Get the current SPSR register. If called from USER mode, returns the CPSR.
+	 */
+	protected int getSPSR() {
+		int index = cpsr.mapSPSRRegister();
+		return (index != -1) ? spsr[index] : cpsr.save();
+	}
+	
+	/**
+	 * Sets the current SPSR register. Should not be called from USER mode.
+	 */
+	protected void setSPSR(int val) {
+		int index = cpsr.mapSPSRRegister();
+		if (index != -1) 
+			spsr[index] = val;
+	}
+	
+	/**
+	 * Modify the flag bits of the current SPSR register. Should not be called from USER mode.
+	 */
+	protected void modifySPSR(int val) {
+		int index = cpsr.mapSPSRRegister();
+		if (index != -1) //Force the old flag bits to 0, OR that with new flag bits
+			spsr[index] = (spsr[index] & 0x0FFFFFFF) | (val & 0xF0000000);
+	}
 
 	/**
 	 * Low registers cannot be banked, so no mode checking is done.

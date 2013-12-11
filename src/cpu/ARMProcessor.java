@@ -391,11 +391,41 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	private void psrTransfer(byte midTop, byte midBot, byte bot) {
-		
+		boolean spsr = ((midTop & 0x40) == 0x40); //Bit 22
+		byte bit21_to_16 = (byte) (midTop & 0x3F);
+		if (bit21_to_16 == (byte) 0x0F && (midBot & 0xF) == 0 && bot == 0) //Bit 21-16 is 001111 (0x0F), bit 11-0 is 0
+			mrs((byte)((midBot & 0xF0) >>> 4), spsr); //Rd is bit 15-12
+		else if (bit21_to_16 == (byte) 0x29 && midBot == (byte) (0xF0) && (bot & 0xF0) == 0) //Bit 21-16 is 101001 (0x29), bit 15-12 is 1, bit 11-4 is 0
+			msr(bot, spsr); //Rm is bit 3-0
+		else if (bit21_to_16 == (byte) 0x28 && midBot == (byte) (0xF0) && (bot & 0xF0) == 0) //Bit 21-16 is 101000 (0x28), bit 15-12 is 1, bit 11-4 is 0
+			msrFLG(cpu.getReg(bot), spsr); //Rm is bit 3-0
+		else
+			cpu.undefinedInstr();
+	}
+	
+	private void mrs(byte reg, boolean spsr) {
+		setRegSafe(reg, (spsr) ? cpu.getSPSR() : cpu.cpsr.save());
+	}
+	
+	private void msr(byte reg, boolean spsr) {
+		if (spsr)
+			cpu.setSPSR(cpu.getReg(reg));
+		else
+			cpu.cpsr.load(cpu.getReg(reg));
+	}
+	
+	private void msrFLG(int val, boolean spsr) {
+		if (spsr)
+			cpu.modifySPSR(val);
+		else
+			cpu.cpsr.loadFlagBits(val);
 	}
 
 	private void psrTransferImm(byte midTop, byte midBot, byte bot) {
-
+		if ((midTop & 0x3F) == 0x28 && (midBot & 0xF0) == 0xF0) //Bit 21-16 is 101000 (0x28), bit 15-12 is 1
+			msrFLG(immOp(bot & 0xFF, midBot & 0xF), (midTop & 0x40) == 0x40);
+		else
+			cpu.undefinedInstr();
 	}
 
 	private int immOp(int val, int rotate) {
