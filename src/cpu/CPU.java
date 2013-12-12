@@ -47,7 +47,7 @@ public class CPU {
 	private final THUMBProcessor thumb;
 
 	protected final CPSR cpsr; //CPSR (CONDITION CODE FLAGS AND CURRENT MODE BITS)
-	
+
 	private int pc;
 	private boolean branched;
 
@@ -56,7 +56,7 @@ public class CPU {
 		thumb = new THUMBProcessor(this);
 		cpsr = new CPSR();
 	}
-	
+
 	/**
 	 * Load CPSR from current SPSR register. Should not be called from USER mode.
 	 */
@@ -65,7 +65,7 @@ public class CPU {
 		if (index != -1) 
 			cpsr.load(spsr[index]);
 	}
-	
+
 	/**
 	 * Get the current SPSR register. If called from USER mode, returns the CPSR.
 	 */
@@ -73,7 +73,7 @@ public class CPU {
 		int index = cpsr.mapSPSRRegister();
 		return (index != -1) ? spsr[index] : cpsr.save();
 	}
-	
+
 	/**
 	 * Sets the current SPSR register. Should not be called from USER mode.
 	 */
@@ -82,7 +82,7 @@ public class CPU {
 		if (index != -1) 
 			spsr[index] = val;
 	}
-	
+
 	/**
 	 * Modify the flag bits of the current SPSR register. Should not be called from USER mode.
 	 */
@@ -105,7 +105,7 @@ public class CPU {
 	protected void setLowReg(byte reg, int value) {
 		regs[reg & 0x7][0] = value;
 	}
-	
+
 	/**
 	 * Read from a high register, mode checking done because of banking.
 	 * 
@@ -115,16 +115,16 @@ public class CPU {
 	protected int getHighReg(byte reg) {
 		return regs[(reg & 0x7) + 0x8][cpsr.mapHighRegister(reg)];
 	}
-	
+
 	protected void setHighReg(byte reg, int value) {
 		regs[(reg & 0x7) + 0x8][cpsr.mapHighRegister(reg)] = value;
 	}
-	
+
 	protected int getReg(byte reg) {
 		reg = (byte) (reg & 0xF);
 		return (reg <= 0x7) ? getLowReg(reg) : getHighReg((byte) (reg - 0x8));
 	}
-	
+
 	protected void setReg(byte reg, int value) {
 		reg = (byte) (reg & 0xF);
 		if (reg <= 0x7)
@@ -132,29 +132,29 @@ public class CPU {
 		else
 			setHighReg((byte) (reg - 0x8), value);
 	}
-	
+
 	protected int getPC() {
 		return regs[15][0];
 	}
-	
+
 	/**
 	 * @return The link register for the current mode.
 	 */
 	protected int getLR() {
 		return regs[14][cpsr.mapHighRegister((byte) 6)];
 	}
-	
+
 	protected void setLR(int val) {
 		regs[14][cpsr.mapHighRegister((byte) 6)] = val;
 	}
-	
+
 	/**
 	 * @return The stack pointer for the current mode.
 	 */
 	protected int getSP() {
 		return regs[13][cpsr.mapHighRegister((byte) 5)];
 	}
-	
+
 	protected void setSP(int val) {
 		regs[13][cpsr.mapHighRegister((byte) 5)] = val;
 	}
@@ -203,44 +203,52 @@ public class CPU {
 		cpsr.zero = (result == 0);
 		return result;
 	}
-	
+
 	protected void branch(int address) {
 		//TODO Update the PC and set branched to true
 	}
-	
+
 	protected int read32(int address) {
 		//TODO
 		return 0;
 	}
-	
+
 	protected void write32(int address, int val) {
 		//TODO
 	}
-	
+
 	protected int read16(int address) {
 		//TODO 
 		return 0;
 	}
-	
+
 	protected void write16(int address, int val) {
 		//TODO
 	}
-	
+
 	protected int read8(int address) {
 		//TODO
 		return 0;
 	}
-	
+
 	protected void write8(int address, int val) {
 		//TODO
 	}
-	
+
 	protected void softwareInterrupt(byte arg) {
-		
+
+	}
+
+	protected void softwareInterrupt(byte high, byte mid, byte low) {
+
 	}
 	
-	protected void undefinedInstr() {
+	protected void undefinedTrap() {
 		
+	}
+
+	protected void undefinedInstr() {
+
 	}
 
 	protected byte accessROM(int pc) {

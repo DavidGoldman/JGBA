@@ -76,7 +76,7 @@ public class ARMProcessor implements CPU.IProcessor {
 					else if ((bit23_to_20 & 0x8) == 0x8)
 						multiplyLong(midTop, midBot, bot);
 					else
-						; //TODO Undefined
+						cpu.undefinedInstr();
 				}
 				else { //Bit 6,5 are NOT both CLEAR, implies Halfword DT
 					if ((bit23_to_20 & 0x4) == 0x4) //Bit 22 is SET
@@ -84,7 +84,7 @@ public class ARMProcessor implements CPU.IProcessor {
 					else if ((midBot & 0xF) == 0) //Bit 22 is CLEAR AND Bit 11-8 CLEAR
 						halfwordDTRegister(false, midTop, midBot, bot);
 					else
-						; //TODO Undefined
+						cpu.undefinedInstr();
 				}
 				break;
 			case 0x1:
@@ -96,7 +96,7 @@ public class ARMProcessor implements CPU.IProcessor {
 					if ((bit23_to_20 & 0xB) == 0 && (midBot & 0xF) == 0) //Bit 27-25 CLEAR, Bit 24 SET, BIT 23,21,20 CLEAR, Bit 11-8 CLEAR
 						singleDataSwap(midTop, midBot, bot);
 					else
-						; //TODO Undefined
+						cpu.undefinedInstr();
 				}
 				else { //Bit 6,5 are NOT both CLEAR, implies Halfword DT
 					if ((bit23_to_20 & 0x4) == 0x4) //Bit 22 is SET
@@ -104,7 +104,7 @@ public class ARMProcessor implements CPU.IProcessor {
 					else if ((midBot & 0xF) == 0) //Bit 22 is CLEAR AND Bit 11-8 CLEAR
 						halfwordDTRegister(true, midTop, midBot, bot);
 					else
-						; //TODO Undefined
+						cpu.undefinedInstr();
 				}
 				break;
 			case 0x2: dataProcPSRImm(top, midTop, midBot, bot); break;
@@ -668,7 +668,7 @@ public class ARMProcessor implements CPU.IProcessor {
 		case 7: smlals(midTop, (byte) ((midBot & 0xF0) >>> 4), bot, midBot); break;
 		}
 	}
-	
+
 	private void umull(byte rdHi, byte rdLo, byte rm, byte rs) {
 		long result = (cpu.getReg(rm) & 0xFFFFFFFFL)*(cpu.getReg(rs) & 0xFFFFFFFFL);
 		setRegSafe(rdHi, (int) (result >>> 32));
@@ -683,13 +683,13 @@ public class ARMProcessor implements CPU.IProcessor {
 		setRegSafe(rdHi, (int) (result >>> 32));
 		setRegSafe(rdLo, (int) result);
 	}
-	
+
 	private void umlal(byte rdHi, byte rdLo, byte rm, byte rs) {
 		long result = (cpu.getReg(rm) & 0xFFFFFFFFL)*(cpu.getReg(rs) & 0xFFFFFFFFL) + (((cpu.getReg(rdHi) & 0xFFFFFFFFL) << 32) | (cpu.getReg(rdLo) & 0xFFFFFFFFL));
 		setRegSafe(rdHi, (int) (result >>> 32));
 		setRegSafe(rdLo, (int) result);
 	}
-	
+
 	private void umlals(byte rdHi, byte rdLo, byte rm, byte rs) {
 		long result = (cpu.getReg(rm) & 0xFFFFFFFFL)*(cpu.getReg(rs) & 0xFFFFFFFFL) + (((cpu.getReg(rdHi) & 0xFFFFFFFFL) << 32) | (cpu.getReg(rdLo) & 0xFFFFFFFFL));
 		cpu.cpsr.carry = false;
@@ -758,7 +758,7 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	private void undefinedTrap() {
-
+		cpu.undefinedTrap();
 	}
 
 	private void blockDataTransferPre(byte midTop, byte midBot, byte bot) {
@@ -770,31 +770,36 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	private void branchLink(byte midTop, byte midBot, byte bot) {
-
+		cpu.setLR(cpu.getPC() - 4);
+		//Sign extended offset
+		int offset = ((((midTop & 0xFF) << 16) | ((midBot & 0xFF) << 8) | (bot & 0xFF)) << 8) >> 6;
+		cpu.branch(cpu.getPC() + offset);
 	}
 
 	private void branch(byte midTop, byte midBot, byte bot) {
-
+		//Sign extended offset
+		int offset = ((((midTop & 0xFF) << 16) | ((midBot & 0xFF) << 8) | (bot & 0xFF)) << 8) >> 6;
+		cpu.branch(cpu.getPC() + offset);
 	}
 
 	private void coprocDataTransferPre(byte midTop, byte midBot, byte bot) {
-
+		cpu.undefinedInstr();
 	}
 
 	private void coprocDataTransferPost(byte midTop, byte midBot, byte bot) {
-
+		cpu.undefinedInstr();
 	}
 
 	private void coprocDataOperation(byte midTop, byte midBot, byte bot) {
-
+		cpu.undefinedInstr();
 	}
 
 	private void coprocRegisterTransfer(byte midTop, byte midBot, byte bot) {
-
+		cpu.undefinedInstr();
 	}
 
 	private void softwareInterrupt(byte midTop, byte midBot, byte bot) {
-
+		cpu.softwareInterrupt(midTop, midBot, bot);
 	}
 
 }
