@@ -90,8 +90,20 @@ public class CPSR {
 	public int mapSPSRRegister() {
 		return R13_R14_MAP[mode & 0xF] - 1;
 	}
+	
+	 public void load(int cpsr) {
+         negative = (cpsr & 0x80000000) == 0x80000000;
+         zero = (cpsr & 0x40000000) == 0x40000000;
+         carry = (cpsr & 0x20000000) == 0x20000000;
+         overflow = (cpsr & 0x10000000) == 0x10000000;
+         
+         irqDisable = (cpsr & 0x80) == 0x80;
+         fiqDisable = (cpsr & 0x40) == 0x40;
+         thumb = (cpsr & 0x20) == 0x20;
+         mode = (byte) (cpsr & 0x1F);
+ }
 
-	public void load(int cpsr) {
+	public void loadRestricted(int cpsr) {
 		negative = (cpsr & 0x80000000) == 0x80000000;
 		zero = (cpsr & 0x40000000) == 0x40000000;
 		carry = (cpsr & 0x20000000) == 0x20000000;

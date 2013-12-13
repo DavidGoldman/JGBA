@@ -411,7 +411,7 @@ public class ARMProcessor implements CPU.IProcessor {
 		if (spsr)
 			cpu.setSPSR(cpu.getReg(reg));
 		else
-			cpu.cpsr.load(cpu.getReg(reg));
+			cpu.cpsr.loadRestricted(cpu.getReg(reg));
 	}
 
 	private void msrFLG(int val, boolean spsr) {
