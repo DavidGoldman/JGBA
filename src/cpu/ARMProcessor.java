@@ -730,7 +730,24 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	private void singleDataSwap(byte midTop, byte midBot, byte bot) {
+		if ((midTop & 0x40) == 0x40) //Bit 22 SET - byte quantity
+			swpb(midTop, (byte) ((midBot & 0xF0) >>> 4), bot);
+		else
+			swp(midTop, (byte) ((midBot & 0xF0) >>> 4), bot);	
+	}
 
+	private void swpb(byte rn, byte rd, byte rs) {
+		int address = cpu.getReg(rn);
+		int contents = cpu.read8(address);
+		cpu.write8(address, cpu.getReg(rs));
+		setRegSafe(rd, contents);
+	}
+
+	private void swp(byte rn, byte rd, byte rs) {
+		int address = cpu.getReg(rn);
+		int contents = cpu.read32(address);
+		cpu.write32(address, cpu.getReg(rs));
+		setRegSafe(rd, contents);
 	}
 
 	private void halfwordDTImmediate(boolean p, byte midTop, byte midBot, byte bot) {
