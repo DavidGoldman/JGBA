@@ -36,6 +36,13 @@ public class ARMProcessor implements CPU.IProcessor {
 			cpu.setReg(reg, val);
 	}
 
+	private void setUserRegSafe(byte reg, int val) {
+		if ((reg & 0xF) == 0xF)
+			cpu.branch(val & 0xFFFFFFFC);
+		else
+			cpu.setUserReg(reg, val);
+	}
+
 	private void setRegSafeCPSR(byte reg, int val) {
 		if ((reg & 0xF) == 0xF) {
 			cpu.loadCPSR();
@@ -759,19 +766,201 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	private void singleDataTransferImmPre(byte midTop, byte midBot, byte bot) {
+		byte ubwl = (byte) ((midTop & 0xF0) >>> 4); // up/down, byte/word, write back/don't, load/store bits
+		//rn = midTop
+		byte rd = (byte) ((midBot & 0xF0) >>> 4);
+		int imm12 = ((midBot & 0xF) << 8) | (bot & 0xFF);
+		//8 - Up (else down)
+		//4 - Byte (else word)
+		//2 - Write back (else don't)
+		//1 - Load (else store)
+		switch(ubwl) { 
+		case 0x0: str(rd, baseDecr(midTop, imm12)); break; //Group 1 - word decr
+		case 0x1: ldr(rd, baseDecr(midTop, imm12)); break;
+		case 0x2: str(rd, basePreDecr(midTop, imm12)); break;
+		case 0x3: ldr(rd, basePreDecr(midTop, imm12)); break;
+		case 0x4: strb(rd, baseDecr(midTop, imm12)); break; //Group 2 - byte decr
+		case 0x5: ldrb(rd, baseDecr(midTop, imm12)); break;
+		case 0x6: strb(rd, basePreDecr(midTop, imm12)); break;
+		case 0x7: ldrb(rd, basePreDecr(midTop, imm12)); break;
+		case 0x8: str(rd, baseIncr(midTop, imm12)); break; //Group 3 - word incr
+		case 0x9: ldr(rd, baseIncr(midTop, imm12)); break;
+		case 0xA: str(rd, basePreIncr(midTop, imm12)); break;
+		case 0xB: ldr(rd, basePreIncr(midTop, imm12)); break;
+		case 0xC: strb(rd, baseIncr(midTop, imm12)); break; //Group 4 - byte incr
+		case 0xD: ldrb(rd, baseIncr(midTop, imm12)); break;
+		case 0xE: strb(rd, basePreIncr(midTop, imm12)); break;
+		case 0xF: ldrb(rd, basePreIncr(midTop, imm12)); break;
+		}
+	}
 
+	private int baseIncr(byte base, int offset) {
+		return cpu.getReg(base) + offset;
+	}
+
+	private int baseDecr(byte base, int offset) {
+		return cpu.getReg(base) - offset;
+	}
+
+	private int basePreIncr(byte base, int offset) {
+		int val = cpu.getReg(base) + offset;
+		setRegSafe(base, val);
+		return val;
+	}
+
+	private int basePreDecr(byte base, int offset) {
+		int val = cpu.getReg(base) - offset;
+		setRegSafe(base, val);
+		return val;
+	}
+
+	private void str(byte reg, int address) {
+		cpu.write32(address, getRegDelayedPC(reg));
+	}
+
+	private void ldr(byte reg, int address) {
+		setRegSafe(reg, cpu.read32(address));
+	}
+
+	private void strb(byte reg, int address) {
+		cpu.write8(address, getRegDelayedPC(reg));
+	}
+
+	private void ldrb(byte reg, int address) {
+		setRegSafe(reg, cpu.read8(address));
 	}
 
 	private void singleDataTransferImmPost(byte midTop, byte midBot, byte bot) {
+		byte ubtl = (byte) ((midTop & 0xF0) >>> 4); // up/down, byte/word, force non-privileged/don't, load/store bits
+		//rn = midTop
+		byte rd = (byte) ((midBot & 0xF0) >>> 4);
+		int imm12 = ((midBot & 0xF) << 8) | (bot & 0xFF);
+		//8 - Up (else down)
+		//4 - Byte (else word)
+		//2 - Force user mode (else don't)
+		//1 - Load (else store)
+		switch(ubtl) { 
+		case 0x0: str(rd, basePostDecr(midTop, imm12)); break; //Group 1 - word decr
+		case 0x1: ldr(rd, basePostDecr(midTop, imm12)); break;
+		case 0x2: str(rd, basePostDecrUser(midTop, imm12)); break;
+		case 0x3: ldr(rd, basePostDecrUser(midTop, imm12)); break;
+		case 0x4: strb(rd, basePostDecr(midTop, imm12)); break; //Group 2 - byte decr
+		case 0x5: ldrb(rd, basePostDecr(midTop, imm12)); break;
+		case 0x6: strb(rd, basePostDecrUser(midTop, imm12)); break;
+		case 0x7: ldrb(rd, basePostDecrUser(midTop, imm12)); break;
+		case 0x8: str(rd, basePostIncr(midTop, imm12)); break; //Group 3 - word incr
+		case 0x9: ldr(rd, basePostIncr(midTop, imm12)); break;
+		case 0xA: str(rd, basePostIncrUser(midTop, imm12)); break;
+		case 0xB: ldr(rd, basePostIncrUser(midTop, imm12)); break;
+		case 0xC: strb(rd, basePostIncr(midTop, imm12)); break; //Group 4 - byte incr
+		case 0xD: ldrb(rd, basePostIncr(midTop, imm12)); break;
+		case 0xE: strb(rd, basePostIncrUser(midTop, imm12)); break;
+		case 0xF: ldrb(rd, basePostIncrUser(midTop, imm12)); break;
+		}
+	}
 
+	private int basePostDecr(byte base, int offset) {
+		int val = cpu.getReg(base);
+		setRegSafe(base, val - offset);
+		return val;
+	}
+
+	private int basePostDecrUser(byte base, int offset) {
+		int val = cpu.getUserReg(base);
+		setUserRegSafe(base, val - offset);
+		return val;
+	}
+
+	private int basePostIncr(byte base, int offset) {
+		int val = cpu.getReg(base);
+		setRegSafe(base, val + offset);
+		return val;
+	}
+
+	private int basePostIncrUser(byte base, int offset) {
+		int val = cpu.getUserReg(base);
+		setUserRegSafe(base, val + offset);
+		return val;
 	}
 
 	private void singleDataTransferRegPre(byte midTop, byte midBot, byte bot) {
+		byte ubwl = (byte) ((midTop & 0xF0) >>> 4); // up/down, byte/word, write back/don't, load/store bits
+		//rn = midTop
+		byte rd = (byte) ((midBot & 0xF0) >>> 4);
+		byte shift = (byte) (((midBot & 0xF) << 4) | ((bot & 0xF0) >>> 4));
+		byte rm = (byte) (bot & 0xF);
+		int offset = getOp2DT(shift, rm);
+		//8 - Up (else down)
+		//4 - Byte (else word)
+		//2 - Write back (else don't)
+		//1 - Load (else store)
+		switch(ubwl) { 
+		case 0x0: str(rd, baseDecr(midTop, offset)); break; //Group 1 - word decr
+		case 0x1: ldr(rd, baseDecr(midTop, offset)); break;
+		case 0x2: str(rd, basePreDecr(midTop, offset)); break;
+		case 0x3: ldr(rd, basePreDecr(midTop, offset)); break;
+		case 0x4: strb(rd, baseDecr(midTop, offset)); break; //Group 2 - byte decr
+		case 0x5: ldrb(rd, baseDecr(midTop, offset)); break;
+		case 0x6: strb(rd, basePreDecr(midTop, offset)); break;
+		case 0x7: ldrb(rd, basePreDecr(midTop, offset)); break;
+		case 0x8: str(rd, baseIncr(midTop, offset)); break; //Group 3 - word incr
+		case 0x9: ldr(rd, baseIncr(midTop, offset)); break;
+		case 0xA: str(rd, basePreIncr(midTop, offset)); break;
+		case 0xB: ldr(rd, basePreIncr(midTop, offset)); break;
+		case 0xC: strb(rd, baseIncr(midTop, offset)); break; //Group 4 - byte incr
+		case 0xD: ldrb(rd, baseIncr(midTop, offset)); break;
+		case 0xE: strb(rd, basePreIncr(midTop, offset)); break;
+		case 0xF: ldrb(rd, basePreIncr(midTop, offset)); break;
+		}
+	}
 
+	private int getOp2DT(byte shift, byte rm) {
+		byte type = (byte)((shift & 0x6) >>> 1); //type is bit 6-5
+		if ((shift & 0x1) == 0) { //shift unsigned integer
+			int imm5 = ((shift & 0xF8) >>> 3); //bit 11-7
+			switch(type) {
+			case 0: return lsli(rm, imm5);
+			case 1: return lsri(rm, imm5);
+			case 2: return asri(rm, imm5);
+			case 3: return rori(rm, imm5);
+			}
+		}
+		else //Shift register not available in this instruction class
+			return 0;
+		//Should never occur
+		throw new RuntimeException();
+		//return 0;
 	}
 
 	private void singleDataTransferRegPost(byte midTop, byte midBot, byte bot) {
-
+		byte ubtl = (byte) ((midTop & 0xF0) >>> 4); // up/down, byte/word, force non-privileged/don't, load/store bits
+		//rn = midTop
+		byte rd = (byte) ((midBot & 0xF0) >>> 4);
+		byte shift = (byte) (((midBot & 0xF) << 4) | ((bot & 0xF0) >>> 4));
+		byte rm = (byte) (bot & 0xF);
+		int offset = getOp2DT(shift, rm);
+		//8 - Up (else down)
+		//4 - Byte (else word)
+		//2 - Force user mode (else don't)
+		//1 - Load (else store)
+		switch(ubtl) { 
+		case 0x0: str(rd, basePostDecr(midTop, offset)); break; //Group 1 - word decr
+		case 0x1: ldr(rd, basePostDecr(midTop, offset)); break;
+		case 0x2: str(rd, basePostDecrUser(midTop, offset)); break;
+		case 0x3: ldr(rd, basePostDecrUser(midTop, offset)); break;
+		case 0x4: strb(rd, basePostDecr(midTop, offset)); break; //Group 2 - byte decr
+		case 0x5: ldrb(rd, basePostDecr(midTop, offset)); break;
+		case 0x6: strb(rd, basePostDecrUser(midTop, offset)); break;
+		case 0x7: ldrb(rd, basePostDecrUser(midTop, offset)); break;
+		case 0x8: str(rd, basePostIncr(midTop, offset)); break; //Group 3 - word incr
+		case 0x9: ldr(rd, basePostIncr(midTop, offset)); break;
+		case 0xA: str(rd, basePostIncrUser(midTop, offset)); break;
+		case 0xB: ldr(rd, basePostIncrUser(midTop, offset)); break;
+		case 0xC: strb(rd, basePostIncr(midTop, offset)); break; //Group 4 - byte incr
+		case 0xD: ldrb(rd, basePostIncr(midTop, offset)); break;
+		case 0xE: strb(rd, basePostIncrUser(midTop, offset)); break;
+		case 0xF: ldrb(rd, basePostIncrUser(midTop, offset)); break;
+		}
 	}
 
 	private void undefinedTrap() {

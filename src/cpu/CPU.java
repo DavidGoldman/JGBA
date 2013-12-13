@@ -132,6 +132,14 @@ public class CPU {
 		else
 			setHighReg((byte) (reg - 0x8), value);
 	}
+	
+	protected int getUserReg(byte reg) {
+		return regs[reg & 0xF][0];
+	}
+	
+	protected void setUserReg(byte reg, int value) {
+		regs[reg & 0xF][0] = value;
+	}
 
 	protected int getPC() {
 		return regs[15][0];
