@@ -925,8 +925,8 @@ public class ARMProcessor implements CPU.IProcessor {
 			case 3: return rori(rm, imm5);
 			}
 		}
-		else //Shift register not available in this instruction class
-			return 0;
+		else //Shift register not available in this instruction class, TODO handle this properly
+			return cpu.getReg(rm);
 		//Should never occur
 		throw new RuntimeException();
 		//return 0;
