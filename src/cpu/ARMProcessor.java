@@ -87,9 +87,9 @@ public class ARMProcessor implements CPU.IProcessor {
 				}
 				else { //Bit 6,5 are NOT both CLEAR, implies Halfword DT
 					if ((bit23_to_20 & 0x4) == 0x4) //Bit 22 is SET
-						halfwordDTImmediate(false, midTop, midBot, bot);
+						halfwordDTImmPost(midTop, midBot, bot);
 					else if ((midBot & 0xF) == 0) //Bit 22 is CLEAR AND Bit 11-8 CLEAR
-						halfwordDTRegister(false, midTop, midBot, bot);
+						halfwordDTRegPost(midTop, midBot, bot);
 					else
 						cpu.undefinedInstr();
 				}
@@ -107,9 +107,9 @@ public class ARMProcessor implements CPU.IProcessor {
 				}
 				else { //Bit 6,5 are NOT both CLEAR, implies Halfword DT
 					if ((bit23_to_20 & 0x4) == 0x4) //Bit 22 is SET
-						halfwordDTImmediate(true, midTop, midBot, bot);
+						halfwordDTImmPre(midTop, midBot, bot);
 					else if ((midBot & 0xF) == 0) //Bit 22 is CLEAR AND Bit 11-8 CLEAR
-						halfwordDTRegister(true, midTop, midBot, bot);
+						halfwordDTRegPre(midTop, midBot, bot);
 					else
 						cpu.undefinedInstr();
 				}
@@ -757,12 +757,123 @@ public class ARMProcessor implements CPU.IProcessor {
 		setRegSafe(rd, contents);
 	}
 
-	private void halfwordDTImmediate(boolean p, byte midTop, byte midBot, byte bot) {
+	private void halfwordDTImmPost(byte midTop, byte midBot, byte bot) {
+		if ((midTop & 0x20) == 0x20) { //Write back should be 0
+			cpu.undefinedInstr();
+			return; 
+		}
+		//rn = midTop
+		byte rd = (byte) ((midBot & 0xF0) >>> 4);
+		int imm8 = ((midBot & 0xF) << 4)| (bot & 0xF);
 
+		//Bit 23 is U bit - up or down 
+		//Post indexed data transfers always write back the modified base
+		//int address = ((midTop & 0x80) == 0x80) ? basePostIncr(midTop, offset) : basePostDecr(midTop, offset);
+		byte lsh = (byte) (((midTop & 0x10) >>> 2) | ((bot & 0x60) >>> 5)); // load/store, signed/unsigned, halfword/byte
+		switch(lsh) {
+		case 0: break; //swp - won't happen
+		case 1: strh(rd, ((midTop & 0x80) == 0x80) ? basePostIncr(midTop, imm8) : basePostDecr(midTop, imm8)); break;
+		case 2: cpu.undefinedInstr(); break; //invalid
+		case 3: cpu.undefinedInstr(); break; //invalid
+		case 4: break; //swp - won't happen
+		case 5: ldrh(rd, ((midTop & 0x80) == 0x80) ? basePostIncr(midTop, imm8) : basePostDecr(midTop, imm8)); break;
+		case 6: ldrsb(rd, ((midTop & 0x80) == 0x80) ? basePostIncr(midTop, imm8) : basePostDecr(midTop, imm8)); break;
+		case 7: ldrsh(rd, ((midTop & 0x80) == 0x80) ? basePostIncr(midTop, imm8) : basePostDecr(midTop, imm8)); break;
+		}
 	}
 
-	private void halfwordDTRegister(boolean p, byte midTop, byte midBot, byte bot) {
+	private void strh(byte reg, int address) {
+		cpu.write16(address, getRegDelayedPC(reg));
+	}
 
+	private void ldrh(byte reg, int address) {
+		setRegSafe(reg, cpu.read16(address));
+	}
+
+	private void ldrsh(byte reg, int address) {
+		//Load sign extended half word
+		setRegSafe(reg, (cpu.read16(address) << 16) >> 16);
+	}
+
+	private void ldrsb(byte reg, int address) {
+		//Load sign extended byte
+		setRegSafe(reg, (cpu.read8(address) << 24) >> 24);
+	}
+
+	private void halfwordDTImmPre(byte midTop, byte midBot, byte bot) {
+		//rn = midTop
+		byte rd = (byte) ((midBot & 0xF0) >>> 4);
+		int imm8 = ((midBot & 0xF) << 4)| (bot & 0xF);
+		
+		byte uw = (byte) (((midTop & 0x80) >>> 6) | ((midTop & 0x20) >>> 5));
+		byte lsh = (byte) (((midTop & 0x10) >>> 2) | ((bot & 0x60) >>> 5)); // load/store, signed/unsigned, halfword/byte
+		switch(lsh) {
+		case 0: break; //swp - won't happen
+		case 1: strh(rd, getPreAddress(uw, rd, imm8)); break;
+		case 2: cpu.undefinedInstr(); break; //invalid
+		case 3: cpu.undefinedInstr(); break; //invalid
+		case 4: break; //swp - won't happen
+		case 5: ldrh(rd, getPreAddress(uw, rd, imm8)); break;
+		case 6: ldrsb(rd, getPreAddress(uw, rd, imm8)); break;
+		case 7: ldrsh(rd, getPreAddress(uw, rd, imm8)); break;
+		}
+	}
+
+	private int getPreAddress(byte uw, byte reg, int offset) {
+		//uw - up/down, write back/don't
+		switch(uw) {
+		case 0: return baseDecr(reg, offset);
+		case 1: return basePreDecr(reg, offset);
+		case 2: return baseIncr(reg, offset);
+		case 3: return basePreIncr(reg, offset);
+		}
+		//Should never occur
+		throw new RuntimeException();
+		//return 0;
+	}
+
+	private void halfwordDTRegPost(byte midTop, byte midBot, byte bot) {
+		if ((midTop & 0x20) == 0x20) { //Write back should be 0
+			cpu.undefinedInstr();
+			return; 
+		}
+		//rn = midTop
+		byte rd = (byte) ((midBot & 0xF0) >>> 4);
+		int offset = cpu.getReg(bot);
+
+		//Bit 23 is U bit - up or down 
+		//Post indexed data transfers always write back the modified base
+		//int address = ((midTop & 0x80) == 0x80) ? basePostIncr(midTop, offset) : basePostDecr(midTop, offset);
+		byte lsh = (byte) (((midTop & 0x10) >>> 2) | ((bot & 0x60) >>> 5)); // load/store, signed/unsigned, halfword/byte
+		switch(lsh) {
+		case 0: break; //swp - won't happen
+		case 1: strh(rd, ((midTop & 0x80) == 0x80) ? basePostIncr(midTop, offset) : basePostDecr(midTop, offset)); break;
+		case 2: cpu.undefinedInstr(); break; //invalid
+		case 3: cpu.undefinedInstr(); break; //invalid
+		case 4: break; //swp - won't happen
+		case 5: ldrh(rd, ((midTop & 0x80) == 0x80) ? basePostIncr(midTop, offset) : basePostDecr(midTop, offset)); break;
+		case 6: ldrsb(rd, ((midTop & 0x80) == 0x80) ? basePostIncr(midTop, offset) : basePostDecr(midTop, offset)); break;
+		case 7: ldrsh(rd, ((midTop & 0x80) == 0x80) ? basePostIncr(midTop, offset) : basePostDecr(midTop, offset)); break;
+		}
+	}
+
+	private void halfwordDTRegPre(byte midTop, byte midBot, byte bot) {
+		//rn = midTop
+		byte rd = (byte) ((midBot & 0xF0) >>> 4);
+		int offset = cpu.getReg(bot);
+		
+		byte uw = (byte) (((midTop & 0x80) >>> 6) | ((midTop & 0x20) >>> 5));
+		byte lsh = (byte) (((midTop & 0x10) >>> 2) | ((bot & 0x60) >>> 5)); // load/store, signed/unsigned, halfword/byte
+		switch(lsh) {
+		case 0: break; //swp - won't happen
+		case 1: strh(rd, getPreAddress(uw, rd, offset)); break;
+		case 2: cpu.undefinedInstr(); break; //invalid
+		case 3: cpu.undefinedInstr(); break; //invalid
+		case 4: break; //swp - won't happen
+		case 5: ldrh(rd, getPreAddress(uw, rd, offset)); break;
+		case 6: ldrsb(rd, getPreAddress(uw, rd, offset)); break;
+		case 7: ldrsh(rd, getPreAddress(uw, rd, offset)); break;
+		}
 	}
 
 	private void singleDataTransferImmPre(byte midTop, byte midBot, byte bot) {
