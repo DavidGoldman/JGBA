@@ -111,13 +111,13 @@ public class THUMBProcessor implements CPU.IProcessor {
 			else if ((top & 0x6) == 0x4) /*Bit 10 SET, Bit 9 CLEAR*/
 				pushRegisters(top, bot); 
 			else
-				cpu.undefinedInstr();
+				cpu.undefinedInstr("Illegal variation of offset stack pointer/push register");
 			break;
 		case 0x17:
 			if ((top & 0x6) == 0x4) /*Bit 10 SET, Bit 9 CLEAR*/
 				popRegisters(top, bot); 
 			else 
-				cpu.undefinedInstr();
+				cpu.undefinedInstr("Illegal variation of pop registers");
 			break;
 		case 0x18: storeMult(top, bot); break;
 		case 0x19: loadMult(top, bot); break;
@@ -129,7 +129,7 @@ public class THUMBProcessor implements CPU.IProcessor {
 				conditionalBranch(top, bot);
 			break;
 		case 0x1C: unconditionalBranch(top, bot); break;
-		case 0x1D: cpu.undefinedInstr(); break; 
+		case 0x1D: cpu.undefinedInstr("THUMB 0x1D... is undefined"); break; 
 		case 0x1E: longBranch(top, bot); break;
 		case 0x1F: branchWithLink(top, bot); break;
 		}
@@ -497,7 +497,7 @@ public class THUMBProcessor implements CPU.IProcessor {
 			else if (high2)
 				addLH(dest, source);
 			else
-				cpu.undefinedInstr();
+				cpu.undefinedInstr("Add low-low is undefined");
 			break;
 		case 0x1:
 			if (high1 && high2)
@@ -507,7 +507,7 @@ public class THUMBProcessor implements CPU.IProcessor {
 			else if (high2)
 				cmpLH(dest, source);
 			else
-				cpu.undefinedInstr();
+				cpu.undefinedInstr("Cmp low-low is undefined");
 			break;
 		case 0x2:
 			if (high1 && high2)
@@ -517,11 +517,11 @@ public class THUMBProcessor implements CPU.IProcessor {
 			else if (high2)
 				movLH(dest, source);
 			else
-				cpu.undefinedInstr();
+				cpu.undefinedInstr("Mov low-low is undefined");
 			break;
 		case 0x3:
 			if (high1)
-				cpu.undefinedInstr();
+				cpu.undefinedInstr("BranchX high-low, high-high is undefined");
 			else if (high2)
 				branchXLow(source);
 			else
@@ -788,7 +788,7 @@ public class THUMBProcessor implements CPU.IProcessor {
 	private void conditionalBranch(byte top, byte bot) {
 		byte cond = (byte) (top & 0xF);
 		if (cond == 14)
-			cpu.undefinedInstr();
+			cpu.undefinedInstr("Branch conditional-14 is undefined");
 		//8 bit offset is actually 9 bits
 		else if (Condition.condition(cond, cpu.cpsr))
 			cpu.branch(cpu.getPC() + ((bot & 0xFF) << 1));

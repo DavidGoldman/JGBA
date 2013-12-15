@@ -83,7 +83,7 @@ public class ARMProcessor implements CPU.IProcessor {
 					else if ((bit23_to_20 & 0x8) == 0x8)
 						multiplyLong(midTop, midBot, bot);
 					else
-						cpu.undefinedInstr();
+						cpu.undefinedInstr("Illegal multiply varation");
 				}
 				else { //Bit 6,5 are NOT both CLEAR, implies Halfword DT
 					if ((bit23_to_20 & 0x4) == 0x4) //Bit 22 is SET
@@ -91,7 +91,7 @@ public class ARMProcessor implements CPU.IProcessor {
 					else if ((midBot & 0xF) == 0) //Bit 22 is CLEAR AND Bit 11-8 CLEAR
 						halfwordDTRegPost(midTop, midBot, bot);
 					else
-						cpu.undefinedInstr();
+						cpu.undefinedInstr("Illegal (post) halfword data transfer variation");
 				}
 				break;
 			case 0x1:
@@ -103,7 +103,7 @@ public class ARMProcessor implements CPU.IProcessor {
 					if ((bit23_to_20 & 0xB) == 0 && (midBot & 0xF) == 0) //Bit 27-25 CLEAR, Bit 24 SET, BIT 23,21,20 CLEAR, Bit 11-8 CLEAR
 						singleDataSwap(midTop, midBot, bot);
 					else
-						cpu.undefinedInstr();
+						cpu.undefinedInstr("Illegal single data swap variation");
 				}
 				else { //Bit 6,5 are NOT both CLEAR, implies Halfword DT
 					if ((bit23_to_20 & 0x4) == 0x4) //Bit 22 is SET
@@ -111,7 +111,7 @@ public class ARMProcessor implements CPU.IProcessor {
 					else if ((midBot & 0xF) == 0) //Bit 22 is CLEAR AND Bit 11-8 CLEAR
 						halfwordDTRegPre(midTop, midBot, bot);
 					else
-						cpu.undefinedInstr();
+						cpu.undefinedInstr("Illegal (pre) halfword data transfer variation");
 				}
 				break;
 			case 0x2: dataProcPSRImm(top, midTop, midBot, bot); break;
@@ -407,7 +407,7 @@ public class ARMProcessor implements CPU.IProcessor {
 		else if (bit21_to_16 == (byte) 0x28 && midBot == (byte) (0xF0) && (bot & 0xF0) == 0) //Bit 21-16 is 101000 (0x28), bit 15-12 is 1, bit 11-4 is 0
 			msrFLG(cpu.getReg(bot), spsr); //Rm is bit 3-0
 		else
-			cpu.undefinedInstr();
+			cpu.undefinedInstr("Illegal (reg) psr transfer variation");
 	}
 
 	private void mrs(byte reg, boolean spsr) {
@@ -432,7 +432,7 @@ public class ARMProcessor implements CPU.IProcessor {
 		if ((midTop & 0x3F) == 0x28 && (midBot & 0xF0) == 0xF0) //Bit 21-16 is 101000 (0x28), bit 15-12 is 1
 			msrFLG(immOp(bot & 0xFF, midBot & 0xF), (midTop & 0x40) == 0x40);
 		else
-			cpu.undefinedInstr();
+			cpu.undefinedInstr("Illegal (imm) psr transfer variation");
 	}
 
 	private int immOp(int val, int rotate) {
@@ -759,7 +759,7 @@ public class ARMProcessor implements CPU.IProcessor {
 
 	private void halfwordDTImmPost(byte midTop, byte midBot, byte bot) {
 		if ((midTop & 0x20) == 0x20) { //Write back should be 0
-			cpu.undefinedInstr();
+			cpu.undefinedInstr("Halfword data transfer POST write back bit must be CLEAR");
 			return; 
 		}
 		//rn = midTop
@@ -773,8 +773,8 @@ public class ARMProcessor implements CPU.IProcessor {
 		switch(lsh) {
 		case 0: break; //swp - won't happen
 		case 1: strh(rd, ((midTop & 0x80) == 0x80) ? basePostIncr(midTop, imm8) : basePostDecr(midTop, imm8)); break;
-		case 2: cpu.undefinedInstr(); break; //invalid
-		case 3: cpu.undefinedInstr(); break; //invalid
+		case 2: cpu.undefinedInstr("Halfword data transfer cannot store sign extended byte"); break; //invalid
+		case 3: cpu.undefinedInstr("Halfword data transfer cannot store sign extended halfword"); break; //invalid
 		case 4: break; //swp - won't happen
 		case 5: ldrh(rd, ((midTop & 0x80) == 0x80) ? basePostIncr(midTop, imm8) : basePostDecr(midTop, imm8)); break;
 		case 6: ldrsb(rd, ((midTop & 0x80) == 0x80) ? basePostIncr(midTop, imm8) : basePostDecr(midTop, imm8)); break;
@@ -810,8 +810,8 @@ public class ARMProcessor implements CPU.IProcessor {
 		switch(lsh) {
 		case 0: break; //swp - won't happen
 		case 1: strh(rd, getPreAddress(uw, rd, imm8)); break;
-		case 2: cpu.undefinedInstr(); break; //invalid
-		case 3: cpu.undefinedInstr(); break; //invalid
+		case 2: cpu.undefinedInstr("Halfword data transfer cannot store sign extended byte"); break; //invalid
+		case 3: cpu.undefinedInstr("Halfword data transfer cannot store sign extended halfword"); break; //invalid
 		case 4: break; //swp - won't happen
 		case 5: ldrh(rd, getPreAddress(uw, rd, imm8)); break;
 		case 6: ldrsb(rd, getPreAddress(uw, rd, imm8)); break;
@@ -834,7 +834,7 @@ public class ARMProcessor implements CPU.IProcessor {
 
 	private void halfwordDTRegPost(byte midTop, byte midBot, byte bot) {
 		if ((midTop & 0x20) == 0x20) { //Write back should be 0
-			cpu.undefinedInstr();
+			cpu.undefinedInstr("Halfword data transfer POST write back bit must be CLEAR");
 			return; 
 		}
 		//rn = midTop
@@ -848,8 +848,8 @@ public class ARMProcessor implements CPU.IProcessor {
 		switch(lsh) {
 		case 0: break; //swp - won't happen
 		case 1: strh(rd, ((midTop & 0x80) == 0x80) ? basePostIncr(midTop, offset) : basePostDecr(midTop, offset)); break;
-		case 2: cpu.undefinedInstr(); break; //invalid
-		case 3: cpu.undefinedInstr(); break; //invalid
+		case 2: cpu.undefinedInstr("Halfword data transfer cannot store sign extended byte"); break; //invalid
+		case 3: cpu.undefinedInstr("Halfword data transfer cannot store sign extended halfword"); break; //invalid
 		case 4: break; //swp - won't happen
 		case 5: ldrh(rd, ((midTop & 0x80) == 0x80) ? basePostIncr(midTop, offset) : basePostDecr(midTop, offset)); break;
 		case 6: ldrsb(rd, ((midTop & 0x80) == 0x80) ? basePostIncr(midTop, offset) : basePostDecr(midTop, offset)); break;
@@ -867,8 +867,8 @@ public class ARMProcessor implements CPU.IProcessor {
 		switch(lsh) {
 		case 0: break; //swp - won't happen
 		case 1: strh(rd, getPreAddress(uw, rd, offset)); break;
-		case 2: cpu.undefinedInstr(); break; //invalid
-		case 3: cpu.undefinedInstr(); break; //invalid
+		case 2: cpu.undefinedInstr("Halfword data transfer cannot store sign extended byte"); break; //invalid
+		case 3: cpu.undefinedInstr("Halfword data transfer cannot store sign extended halfword"); break; //invalid
 		case 4: break; //swp - won't happen
 		case 5: ldrh(rd, getPreAddress(uw, rd, offset)); break;
 		case 6: ldrsb(rd, getPreAddress(uw, rd, offset)); break;
@@ -1100,19 +1100,19 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	private void coprocDataTransferPre(byte midTop, byte midBot, byte bot) {
-		cpu.undefinedInstr();
+		cpu.undefinedInstr("Coprocessor data transfer (pre) is not available");
 	}
 
 	private void coprocDataTransferPost(byte midTop, byte midBot, byte bot) {
-		cpu.undefinedInstr();
+		cpu.undefinedInstr("Coprocessor data transfer (post) is not available");
 	}
 
 	private void coprocDataOperation(byte midTop, byte midBot, byte bot) {
-		cpu.undefinedInstr();
+		cpu.undefinedInstr("Coprocessor data operation is not available");
 	}
 
 	private void coprocRegisterTransfer(byte midTop, byte midBot, byte bot) {
-		cpu.undefinedInstr();
+		cpu.undefinedInstr("Coprocessor register transfer is not available");
 	}
 
 	private void softwareInterrupt(byte midTop, byte midBot, byte bot) {

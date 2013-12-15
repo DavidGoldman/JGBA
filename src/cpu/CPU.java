@@ -255,9 +255,11 @@ public class CPU {
 		
 	}
 
-	protected void undefinedInstr() {
+	protected void undefinedInstr(String info) {
 
 	}
+	
+	
 
 	protected byte accessROM(int pc) {
 		return 0;
