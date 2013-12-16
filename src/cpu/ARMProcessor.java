@@ -29,6 +29,10 @@ public class ARMProcessor implements CPU.IProcessor {
 		return (reg & 0xF) == 0xF ? cpu.getPC() + 4 : cpu.getReg(reg);
 	}
 
+	private int getUserRegDelayedPC(byte reg) {
+		return (reg & 0xF) == 0xF ? cpu.getPC() + 4 : cpu.getUserReg(reg);
+	}
+
 	private void setRegSafe(byte reg, int val) {
 		if ((reg & 0xF) == 0xF)
 			cpu.branch(val & 0xFFFFFFFC);
@@ -804,7 +808,7 @@ public class ARMProcessor implements CPU.IProcessor {
 		//rn = midTop
 		byte rd = (byte) ((midBot & 0xF0) >>> 4);
 		int imm8 = ((midBot & 0xF) << 4)| (bot & 0xF);
-		
+
 		byte uw = (byte) (((midTop & 0x80) >>> 6) | ((midTop & 0x20) >>> 5));
 		byte lsh = (byte) (((midTop & 0x10) >>> 2) | ((bot & 0x60) >>> 5)); // load/store, signed/unsigned, halfword/byte
 		switch(lsh) {
@@ -861,7 +865,7 @@ public class ARMProcessor implements CPU.IProcessor {
 		//rn = midTop
 		byte rd = (byte) ((midBot & 0xF0) >>> 4);
 		int offset = cpu.getReg(bot);
-		
+
 		byte uw = (byte) (((midTop & 0x80) >>> 6) | ((midTop & 0x20) >>> 5));
 		byte lsh = (byte) (((midTop & 0x10) >>> 2) | ((bot & 0x60) >>> 5)); // load/store, signed/unsigned, halfword/byte
 		switch(lsh) {
@@ -1079,11 +1083,515 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	private void blockDataTransferPre(byte midTop, byte midBot, byte bot) {
+		//rn = midTop
+		int list = ((midBot & 0xFF) << 8) | (bot & 0xFF);
+		byte uswl = (byte) ((midTop & 0xF0) >>> 4); // up/down, loadPSR/force User mode/DON'T, write back base/don't, load/store 
+		switch(uswl) { 
+		case 0x0: stmdb(midTop, list); break; //PRE DECR
+		case 0x1: ldmdb(midTop, list); break;
+		case 0x2: stmdbw(midTop, list); break; //write back
+		case 0x3: ldmdbw(midTop, list); break; //write back
+		case 0x4: stmdbs(midTop, list); break; //user mode
+		case 0x5: ldmdbs(midTop, list); break; //user mode/mode change
+		case 0x6: stmdbws(midTop, list); break; //write back and user mode, TODO Verify this is legal
+		case 0x7: ldmdbws(midTop, list); break; //write back and user mode, TODO Verify this is legal
+		case 0x8: stmib(midTop, list); break; //PRE INCR
+		case 0x9: ldmib(midTop, list); break;
+		case 0xA: stmibw(midTop, list); break; //write back
+		case 0xB: ldmibw(midTop, list); break; //write back
+		case 0xC: stmibs(midTop, list); break; //user mode
+		case 0xD: ldmibs(midTop, list); break; //user mode/mode change
+		case 0xE: stmibws(midTop, list); break; //write back and user mode, TODO Verify this is legal
+		case 0xF: ldmibws(midTop, list); break; //write back and user mode, TODO Verify this is legal
+		}
+	}
 
+	//PRE DECR
+	private void stmdb(byte base, int list) {
+		int address = cpu.getReg(base);
+		for (byte reg = 15; reg >= 0; --reg) { 
+			if ((list & (1 << reg)) != 0)	{
+				address -= 4;
+				cpu.write32(address, getRegDelayedPC(reg));
+			}
+		}
+	}
+
+	//PRE DECR - write back
+	private void stmdbw(byte base, int list) {
+		int address = cpu.getReg(base);
+		for (byte reg = 15; reg >= 0; --reg) { 
+			if ((list & (1 << reg)) != 0)	{
+				address -= 4;
+				cpu.write32(address, getRegDelayedPC(reg));
+			}
+		}
+		setRegSafe(base, address);
+	}
+
+	//PRE DECR - user mode
+	private void stmdbs(byte base, int list) {
+		int address = cpu.getReg(base);
+		for (byte reg = 15; reg >= 0; --reg) { 
+			if ((list & (1 << reg)) != 0)	{
+				address -= 4;
+				cpu.write32(address, getUserRegDelayedPC(reg));
+			}
+		}
+	}
+
+	//PRE DECR - write back and user mode
+	private void stmdbws(byte base, int list) {
+		int address = cpu.getReg(base);
+		for (byte reg = 15; reg >= 0; --reg) { 
+			if ((list & (1 << reg)) != 0)	{
+				address -= 4;
+				cpu.write32(address, getUserRegDelayedPC(reg));
+			}
+		}
+		setRegSafe(base, address);
+	}
+
+	//PRE DECR
+	private void ldmdb(byte base, int list) {
+		int address = cpu.getReg(base);
+		for (byte reg = 15; reg >= 0; --reg) { 
+			if ((list & (1 << reg)) != 0)	{
+				address -= 4;
+				setRegSafe(reg, cpu.read32(address));
+			}
+		}
+	}
+
+	//PRE DECR - write back
+	private void ldmdbw(byte base, int list) {
+		int address = cpu.getReg(base);
+		for (byte reg = 15; reg >= 0; --reg) { 
+			if ((list & (1 << reg)) != 0)	{
+				address -= 4;
+				setRegSafe(reg, cpu.read32(address));
+			}
+		}
+		setRegSafe(base, address);
+	}
+
+	//PRE DECR - user mode/SPSR transfer
+	private void ldmdbs(byte base, int list) {
+		int address = cpu.getReg(base);
+		if ((list & 0x8000) == 0x8000) { //R15 is in list - special mode change
+			address -= 4;
+			setRegSafeCPSR((byte)15, cpu.read32(address));
+			for (byte reg = 14; reg >= 0; --reg) { 
+				if ((list & (1 << reg)) != 0)	{
+					address -= 4;
+					setRegSafe(reg, cpu.read32(address));
+				}
+			}
+		}
+		else {
+			for (byte reg = 14; reg >= 0; --reg) { 
+				if ((list & (1 << reg)) != 0)	{
+					address -= 4;
+					setUserRegSafe(reg, cpu.read32(address));
+				}
+			}
+		}
+	}
+
+	//PRE DECR - write back and user mode/SPSR transfer
+	private void ldmdbws(byte base, int list) {
+		int address = cpu.getReg(base);
+		if ((list & 0x8000) == 0x8000) { //R15 is in list - special mode change
+			address -= 4;
+			setRegSafeCPSR((byte)15, cpu.read32(address));
+			for (byte reg = 14; reg >= 0; --reg) { 
+				if ((list & (1 << reg)) != 0)	{
+					address -= 4;
+					setRegSafe(reg, cpu.read32(address));
+				}
+			}
+		}
+		else {
+			for (byte reg = 14; reg >= 0; --reg) { 
+				if ((list & (1 << reg)) != 0)	{
+					address -= 4;
+					setUserRegSafe(reg, cpu.read32(address));
+				}
+			}
+		}
+		setRegSafe(base, address);
+	}
+
+	//PRE INCR
+	private void stmib(byte base, int list) {
+		int address = cpu.getReg(base);
+		for (byte reg = 0; reg <= 15; ++reg) {
+			if ((list & (1 << reg)) != 0)	{
+				address += 4;
+				cpu.write32(address, getRegDelayedPC(reg));
+			}
+		}
+	}
+
+	//PRE INCR - write back
+	private void stmibw(byte base, int list) {
+		int address = cpu.getReg(base);
+		for (byte reg = 0; reg <= 15; ++reg) {
+			if ((list & (1 << reg)) != 0)	{
+				address += 4;
+				cpu.write32(address, getRegDelayedPC(reg));
+			}
+		}
+		setRegSafe(base, address);
+	}
+
+	//PRE INCR - user mode
+	private void stmibs(byte base, int list) {
+		int address = cpu.getReg(base);
+		for (byte reg = 0; reg <= 15; ++reg) {
+			if ((list & (1 << reg)) != 0)	{
+				address += 4;
+				cpu.write32(address, getUserRegDelayedPC(reg));
+			}
+		}
+	}
+
+	//PRE INCR - write back and user mode
+	private void stmibws(byte base, int list) {
+		int address = cpu.getReg(base);
+		for (byte reg = 0; reg <= 15; ++reg) {
+			if ((list & (1 << reg)) != 0)	{
+				address += 4;
+				cpu.write32(address, getUserRegDelayedPC(reg));
+			}
+		}
+		setRegSafe(base, address);
+	}
+
+	//PRE INCR
+	private void ldmib(byte base, int list) {
+		int address = cpu.getReg(base);
+		for (byte reg = 0; reg <= 15; ++reg) {
+			if ((list & (1 << reg)) != 0)	{
+				address += 4;
+				setRegSafe(reg, cpu.read32(address));
+			}
+		}
+	}
+
+	//PRE INCR - write back
+	private void ldmibw(byte base, int list) {
+		int address = cpu.getReg(base);
+		for (byte reg = 0; reg <= 15; ++reg) {
+			if ((list & (1 << reg)) != 0)	{
+				address += 4;
+				setRegSafe(reg, cpu.read32(address));
+			}
+		}
+		setRegSafe(base, address);
+	}
+
+	//PRE INCR - user mode/SPSR transfer
+	private void ldmibs(byte base, int list) {
+		int address = cpu.getReg(base);
+		if ((list & 0x8000) == 0x8000) { //R15 is in list - special mode change
+			for (byte reg = 0; reg <= 14; ++reg) { 
+				if ((list & (1 << reg)) != 0)	{
+					address += 4;
+					setRegSafe(reg, cpu.read32(address));
+				}
+			}
+			address += 4;
+			setRegSafeCPSR((byte)15, cpu.read32(address));
+		}
+		else {
+			for (byte reg = 0; reg <= 14; ++reg) { 
+				if ((list & (1 << reg)) != 0)	{
+					address += 4;
+					setUserRegSafe(reg, cpu.read32(address));
+				}
+			}
+		}
+	}
+
+	//PRE INCR - write back and user mode/SPSR transfer
+	private void ldmibws(byte base, int list) {
+		int address = cpu.getReg(base);
+		if ((list & 0x8000) == 0x8000) { //R15 is in list - special mode change
+			for (byte reg = 0; reg <= 14; ++reg) { 
+				if ((list & (1 << reg)) != 0)	{
+					address += 4;
+					setRegSafe(reg, cpu.read32(address));
+				}
+			}
+			address += 4;
+			setRegSafeCPSR((byte)15, cpu.read32(address));
+		}
+		else {
+			for (byte reg = 0; reg <= 14; ++reg) { 
+				if ((list & (1 << reg)) != 0)	{
+					address += 4;
+					setUserRegSafe(reg, cpu.read32(address));
+				}
+			}
+		}
+		setRegSafe(base, address);
 	}
 
 	private void blockDataTransferPost(byte midTop, byte midBot, byte bot) {
+		//rn = midTop
+		int list = ((midBot & 0xFF) << 8) | (bot & 0xFF);
+		byte uswl = (byte) ((midTop & 0xF0) >>> 4); // up/down, loadPSR/force User mode/DON'T, write back base/don't, load/store 
+		switch(uswl) {
+		case 0x0: stmda(midTop, list); break; //POST DECR
+		case 0x1: ldmda(midTop, list); break;
+		case 0x2: stmdaw(midTop, list); break; //write back
+		case 0x3: ldmdaw(midTop, list); break; //write back
+		case 0x4: stmdas(midTop, list); break; //user mode
+		case 0x5: ldmdas(midTop, list); break; //user mode/mode change
+		case 0x6: stmdaws(midTop, list); break; //write back and user mode, TODO Verify this is legal
+		case 0x7: ldmdaws(midTop, list); break; //write back and user mode, TODO Verify this is legal
+		case 0x8: stmia(midTop, list); break; //POST INCR
+		case 0x9: ldmia(midTop, list); break;
+		case 0xA: stmiaw(midTop, list); break; //write back
+		case 0xB: ldmiaw(midTop, list); break; //write back
+		case 0xC: stmias(midTop, list); break; //user mode
+		case 0xD: ldmias(midTop, list); break; //user mode/mode change
+		case 0xE: stmiaws(midTop, list); break; //write back and user mode, TODO Verify this is legal
+		case 0xF: ldmiaws(midTop, list); break; //write back and user mode, TODO Verify this is legal
+		}
+	}
 
+	//POST DECR
+	private void stmda(byte base, int list) {
+		int address = cpu.getReg(base);
+		for (byte reg = 15; reg >= 0; --reg) { 
+			if ((list & (1 << reg)) != 0)	{
+				cpu.write32(address, getRegDelayedPC(reg));
+				address -= 4;
+			}
+		}
+	}
+
+	//POST DECR - write back
+	private void stmdaw(byte base, int list) {
+		int address = cpu.getReg(base);
+		for (byte reg = 15; reg >= 0; --reg) { 
+			if ((list & (1 << reg)) != 0)	{
+				cpu.write32(address, getRegDelayedPC(reg));
+				address -= 4;
+			}
+		}
+		setRegSafe(base, address);
+	}
+
+	//POST DECR - user mode
+	private void stmdas(byte base, int list) {
+		int address = cpu.getReg(base);
+		for (byte reg = 15; reg >= 0; --reg) { 
+			if ((list & (1 << reg)) != 0)	{
+				cpu.write32(address, getUserRegDelayedPC(reg));
+				address -= 4;
+			}
+		}
+	}
+
+	//POST DECR - write back and user mode
+	private void stmdaws(byte base, int list) {
+		int address = cpu.getReg(base);
+		for (byte reg = 15; reg >= 0; --reg) { 
+			if ((list & (1 << reg)) != 0)	{
+				cpu.write32(address, getUserRegDelayedPC(reg));
+				address -= 4;
+			}
+		}
+		setRegSafe(base, address);
+	}
+
+	//POST DECR
+	private void ldmda(byte base, int list) {
+		int address = cpu.getReg(base);
+		for (byte reg = 15; reg >= 0; --reg) { 
+			if ((list & (1 << reg)) != 0)	{
+				setRegSafe(reg, cpu.read32(address));
+				address -= 4;
+			}
+		}
+	}
+
+	//POST DECR - write back
+	private void ldmdaw(byte base, int list) {
+		int address = cpu.getReg(base);
+		for (byte reg = 15; reg >= 0; --reg) { 
+			if ((list & (1 << reg)) != 0)	{
+				setRegSafe(reg, cpu.read32(address));
+				address -= 4;
+			}
+		}
+		setRegSafe(base, address);
+	}
+
+	//POST DECR - user mode/SPSR transfer
+	private void ldmdas(byte base, int list) {
+		int address = cpu.getReg(base);
+		if ((list & 0x8000) == 0x8000) { //R15 is in list - special mode change
+			setRegSafeCPSR((byte)15, cpu.read32(address));
+			address -= 4;
+			for (byte reg = 14; reg >= 0; --reg) { 
+				if ((list & (1 << reg)) != 0)	{
+					setRegSafe(reg, cpu.read32(address));
+					address -= 4;
+				}
+			}
+		}
+		else {
+			for (byte reg = 14; reg >= 0; --reg) { 
+				if ((list & (1 << reg)) != 0)	{
+					setUserRegSafe(reg, cpu.read32(address));
+					address -= 4;
+				}
+			}
+		}
+	}
+
+	//POST DECR - write back and user mode/SPSR transfer
+	private void ldmdaws(byte base, int list) {
+		int address = cpu.getReg(base);
+		if ((list & 0x8000) == 0x8000) { //R15 is in list - special mode change
+			setRegSafeCPSR((byte)15, cpu.read32(address));
+			address -= 4;
+			for (byte reg = 14; reg >= 0; --reg) { 
+				if ((list & (1 << reg)) != 0)	{
+					setRegSafe(reg, cpu.read32(address));
+					address -= 4;
+				}
+			}
+		}
+		else {
+			for (byte reg = 14; reg >= 0; --reg) { 
+				if ((list & (1 << reg)) != 0)	{
+					setUserRegSafe(reg, cpu.read32(address));
+					address -= 4;
+				}
+			}
+		}
+		setRegSafe(base, address);
+	}
+
+	//POST INCR
+	private void stmia(byte base, int list) {
+		int address = cpu.getReg(base);
+		for (byte reg = 0; reg <= 15; ++reg) {
+			if ((list & (1 << reg)) != 0)	{
+				cpu.write32(address, getRegDelayedPC(reg));
+				address += 4;
+			}
+		}
+	}
+
+	//POST INCR - write back
+	private void stmiaw(byte base, int list) {
+		int address = cpu.getReg(base);
+		for (byte reg = 0; reg <= 15; ++reg) {
+			if ((list & (1 << reg)) != 0)	{
+				cpu.write32(address, getRegDelayedPC(reg));
+				address += 4;
+			}
+		}
+		setRegSafe(base, address);
+	}
+
+	//POST INCR - user mode
+	private void stmias(byte base, int list) {
+		int address = cpu.getReg(base);
+		for (byte reg = 0; reg <= 15; ++reg) {
+			if ((list & (1 << reg)) != 0)	{
+				cpu.write32(address, getUserRegDelayedPC(reg));
+				address += 4;
+			}
+		}
+	}
+
+	//POST INCR - write back and user mode
+	private void stmiaws(byte base, int list) {
+		int address = cpu.getReg(base);
+		for (byte reg = 0; reg <= 15; ++reg) {
+			if ((list & (1 << reg)) != 0)	{
+				cpu.write32(address, getUserRegDelayedPC(reg));
+				address += 4;
+			}
+		}
+		setRegSafe(base, address);
+	}
+
+	//POST INCR
+	private void ldmia(byte base, int list) {
+		int address = cpu.getReg(base);
+		for (byte reg = 0; reg <= 15; ++reg) {
+			if ((list & (1 << reg)) != 0)	{
+				setRegSafe(reg, cpu.read32(address));
+				address += 4;
+			}
+		}
+	}
+
+	//POST INCR - write back
+	private void ldmiaw(byte base, int list) {
+		int address = cpu.getReg(base);
+		for (byte reg = 0; reg <= 15; ++reg) {
+			if ((list & (1 << reg)) != 0)	{
+				setRegSafe(reg, cpu.read32(address));
+				address += 4;
+			}
+		}
+		setRegSafe(base, address);
+	}
+
+	//POST INCR - user mode/SPSR transfer
+	private void ldmias(byte base, int list) {
+		int address = cpu.getReg(base);
+		if ((list & 0x8000) == 0x8000) { //R15 is in list - special mode change
+			for (byte reg = 0; reg <= 14; ++reg) { 
+				if ((list & (1 << reg)) != 0)	{
+					setRegSafe(reg, cpu.read32(address));
+					address += 4;
+				}
+			}
+			setRegSafeCPSR((byte)15, cpu.read32(address));
+			address += 4;
+		}
+		else {
+			for (byte reg = 0; reg <= 14; ++reg) { 
+				if ((list & (1 << reg)) != 0)	{
+					setUserRegSafe(reg, cpu.read32(address));
+					address += 4;
+				}
+			}
+		}
+	}
+
+	//POST INCR - write back and user mode/SPSR transfer
+	private void ldmiaws(byte base, int list) {
+		int address = cpu.getReg(base);
+		if ((list & 0x8000) == 0x8000) { //R15 is in list - special mode change
+			for (byte reg = 0; reg <= 14; ++reg) { 
+				if ((list & (1 << reg)) != 0)	{
+					setRegSafe(reg, cpu.read32(address));
+					address += 4;
+				}
+			}
+			setRegSafeCPSR((byte)15, cpu.read32(address));
+			address += 4;
+		}
+		else {
+			for (byte reg = 0; reg <= 14; ++reg) { 
+				if ((list & (1 << reg)) != 0)	{
+					setUserRegSafe(reg, cpu.read32(address));
+					address += 4;
+				}
+			}
+		}
+		setRegSafe(base, address);
 	}
 
 	private void branchLink(byte midTop, byte midBot, byte bot) {
