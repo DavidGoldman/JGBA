@@ -5,7 +5,11 @@ import cpu.Condition;
 public class ByteUtils {
 	
 	public static String hex(byte b) {
-		return "0x" + Integer.toHexString(b & 0xff).toUpperCase();
+		return String.format("%02X", b & 0xFF);
+	}
+	
+	public static String hex(int i) {
+		return String.format("%08X", i);
 	}
 	
 	public static char ascii(byte b) {

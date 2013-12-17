@@ -195,7 +195,7 @@ public class THUMBProcessor implements CPU.IProcessor {
 		int arg = cpu.getLowReg((byte) (((top & 0x1) << 2) | ((bot & 0xC0) >>> 6)));
 		int source = cpu.getLowReg((byte) ((bot & 0x38) >>> 3));
 		//The method will & 0x7 for us
-		cpu.setLowReg(bot, cpu.setAddFlags(source, arg));
+		cpu.setLowReg(bot, cpu.cpsr.setAddFlags(source, arg));
 	}
 
 	private void addImm3(byte top, byte bot) {
@@ -203,7 +203,7 @@ public class THUMBProcessor implements CPU.IProcessor {
 		int arg = ((top & 0x1) << 2) | ((bot & 0xC0) >>> 6);
 		int source = cpu.getLowReg((byte) ((bot & 0x38) >>> 3));
 		//The method will & 0x7 for us
-		cpu.setLowReg(bot, cpu.setAddFlags(source, arg));
+		cpu.setLowReg(bot, cpu.cpsr.setAddFlags(source, arg));
 	}
 
 	private void subReg(byte top, byte bot) {
@@ -211,7 +211,7 @@ public class THUMBProcessor implements CPU.IProcessor {
 		int arg = cpu.getLowReg((byte) (((top & 0x1) << 2) | ((bot & 0xC0) >>> 6)));
 		int source = cpu.getLowReg((byte) ((bot & 0x38) >>> 3));
 		//The method will & 0x7 for us
-		cpu.setLowReg(bot, cpu.setSubFlags(source, arg));
+		cpu.setLowReg(bot, cpu.cpsr.setSubFlags(source, arg));
 	}
 
 	private void subImm3(byte top, byte bot) {
@@ -219,7 +219,7 @@ public class THUMBProcessor implements CPU.IProcessor {
 		int arg = ((top & 0x1) << 2) | ((bot & 0xC0) >>> 6);
 		int source = cpu.getLowReg((byte) ((bot & 0x38) >>> 3));
 		//The method will & 0x7 for us
-		cpu.setLowReg(bot, cpu.setSubFlags(source, arg));
+		cpu.setLowReg(bot, cpu.cpsr.setSubFlags(source, arg));
 	}
 
 	private void movImm8(byte top, byte offset8) {
@@ -233,21 +233,21 @@ public class THUMBProcessor implements CPU.IProcessor {
 		//The method will & 0x7 for us
 		int val = cpu.getLowReg(top);
 		//Need to & 0xFF instead of implicit widening
-		cpu.setSubFlags(val, offset8 & 0xFF);
+		cpu.cpsr.setSubFlags(val, offset8 & 0xFF);
 	}
 
 	private void addImm8(byte top, byte offset8) {
 		//The method will & 0x7 for us
 		int val = cpu.getLowReg(top);
 		//The method will & 0x7 for us, but we need to & 0xFF instead of implicit widening
-		cpu.setLowReg(top, cpu.setAddFlags(val, offset8 & 0xFF));
+		cpu.setLowReg(top, cpu.cpsr.setAddFlags(val, offset8 & 0xFF));
 	}
 
 	private void subImm8(byte top, byte offset8) {
 		//The method will & 0x7 for us
 		int val = cpu.getLowReg(top);
 		//The method will & 0x7 for us, but we need to & 0xFF instead of implicit widening
-		cpu.setLowReg(top, cpu.setSubFlags(val, offset8 & 0xFF));
+		cpu.setLowReg(top, cpu.cpsr.setSubFlags(val, offset8 & 0xFF));
 	}
 
 	private void aluOp(byte top, byte bot) {
@@ -372,14 +372,14 @@ public class THUMBProcessor implements CPU.IProcessor {
 	 * ADC Rd, Rs (Rd = Rd + Rs + C-bit)
 	 */
 	private void adc(byte rd, byte rs) {
-		cpu.setLowReg(rd, cpu.setAddCarryFlags(cpu.getLowReg(rd), cpu.getLowReg(rs)));
+		cpu.setLowReg(rd, cpu.cpsr.setAddCarryFlags(cpu.getLowReg(rd), cpu.getLowReg(rs)));
 	}
 
 	/**
 	 * SBC Rd, Rs (Rd = Rd - Rs - NOT C-bit)
 	 */
 	private void sbc(byte rd, byte rs) {
-		cpu.setLowReg(rd, cpu.setSubCarryFlags(cpu.getLowReg(rd), cpu.getLowReg(rs)));
+		cpu.setLowReg(rd, cpu.cpsr.setSubCarryFlags(cpu.getLowReg(rd), cpu.getLowReg(rs)));
 	}
 
 	/**
@@ -432,14 +432,14 @@ public class THUMBProcessor implements CPU.IProcessor {
 	 * CMP Rd, Rs (Set condition codes on Rd - Rs)
 	 */
 	private void cmp(byte rd, byte rs) {
-		cpu.setSubFlags(cpu.getLowReg(rd), cpu.getLowReg(rs));
+		cpu.cpsr.setSubFlags(cpu.getLowReg(rd), cpu.getLowReg(rs));
 	}
 
 	/**
 	 * CMN Rd, Rs (Set condition codes on Rd + Rs)
 	 */
 	private void cmn(byte rd, byte rs) {
-		cpu.setAddFlags(cpu.getLowReg(rd), cpu.getLowReg(rs));
+		cpu.cpsr.setAddFlags(cpu.getLowReg(rd), cpu.getLowReg(rs));
 	}
 
 	/**
@@ -531,27 +531,27 @@ public class THUMBProcessor implements CPU.IProcessor {
 	}
 
 	private void addHH(byte hd, byte hs) {
-		setHighRegSafe(hd, cpu.setAddFlags(cpu.getHighReg(hd), cpu.getHighReg(hs)));
+		setHighRegSafe(hd, cpu.cpsr.setAddFlags(cpu.getHighReg(hd), cpu.getHighReg(hs)));
 	}
 
 	private void addHL(byte hd, byte rs) {
-		setHighRegSafe(hd, cpu.setAddFlags(cpu.getHighReg(hd), cpu.getLowReg(rs)));
+		setHighRegSafe(hd, cpu.cpsr.setAddFlags(cpu.getHighReg(hd), cpu.getLowReg(rs)));
 	}
 
 	private void addLH(byte rd, byte hs) {
-		cpu.setLowReg(rd, cpu.setAddFlags(cpu.getLowReg(rd), cpu.getHighReg(hs)));
+		cpu.setLowReg(rd, cpu.cpsr.setAddFlags(cpu.getLowReg(rd), cpu.getHighReg(hs)));
 	}
 
 	private void cmpHH(byte hd, byte hs) {
-		cpu.setSubFlags(cpu.getHighReg(hd), cpu.getHighReg(hs));
+		cpu.cpsr.setSubFlags(cpu.getHighReg(hd), cpu.getHighReg(hs));
 	}
 
 	private void cmpHL(byte hd, byte rs) {
-		cpu.setSubFlags(cpu.getHighReg(hd), cpu.getLowReg(rs));
+		cpu.cpsr.setSubFlags(cpu.getHighReg(hd), cpu.getLowReg(rs));
 	}
 
 	private void cmpLH(byte rd, byte hs) {
-		cpu.setSubFlags(cpu.getLowReg(rd), cpu.getHighReg(hs));
+		cpu.cpsr.setSubFlags(cpu.getLowReg(rd), cpu.getHighReg(hs));
 	}
 
 	private void movHH(byte hd, byte hs) {

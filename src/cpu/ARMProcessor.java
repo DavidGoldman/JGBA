@@ -524,7 +524,7 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	private void subs(byte rd, int op1, int op2) {
-		setRegSafeCPSR(rd, cpu.setSubFlags(op1, op2));
+		setRegSafeCPSR(rd, cpu.cpsr.setSubFlags(op1, op2));
 	}
 
 	private void rsb(byte rd, int op1, int op2) {
@@ -532,7 +532,7 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	private void rsbs(byte rd, int op1, int op2) {
-		setRegSafeCPSR(rd, cpu.setSubFlags(op2, op1));
+		setRegSafeCPSR(rd, cpu.cpsr.setSubFlags(op2, op1));
 	}
 
 	private void add(byte rd, int op1, int op2) {
@@ -540,7 +540,7 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	private void adds(byte rd, int op1, int op2) {
-		setRegSafeCPSR(rd, cpu.setAddFlags(op1, op2));
+		setRegSafeCPSR(rd, cpu.cpsr.setAddFlags(op1, op2));
 	}
 
 	private void adc(byte rd, int op1, int op2) {
@@ -548,7 +548,7 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	private void adcs(byte rd, int op1, int op2) {
-		setRegSafeCPSR(rd, cpu.setAddCarryFlags(op1, op2));
+		setRegSafeCPSR(rd, cpu.cpsr.setAddCarryFlags(op1, op2));
 	}
 
 	private void sbc(byte rd, int op1, int op2) {
@@ -556,7 +556,7 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	private void sbcs(byte rd, int op1, int op2) {
-		setRegSafeCPSR(rd, cpu.setSubCarryFlags(op1, op2));
+		setRegSafeCPSR(rd, cpu.cpsr.setSubCarryFlags(op1, op2));
 	}
 
 	private void rsc(byte rd, int op1, int op2) {
@@ -564,7 +564,7 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	private void rscs(byte rd, int op1, int op2) {
-		setRegSafeCPSR(rd, cpu.setSubCarryFlags(op2, op1));
+		setRegSafeCPSR(rd, cpu.cpsr.setSubCarryFlags(op2, op1));
 	}
 
 	private void tst(byte rd, int op1, int op2) {
@@ -580,11 +580,11 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	private void cmp(byte rd, int op1, int op2) {
-		cpu.setSubFlags(op1, op2);
+		cpu.cpsr.setSubFlags(op1, op2);
 	}
 
 	private void cmn(byte rd, int op1, int op2) {
-		cpu.setAddFlags(op1, op2);
+		cpu.cpsr.setAddFlags(op1, op2);
 	}
 
 	private void orr(byte rd, int op1, int op2) {

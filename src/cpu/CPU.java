@@ -1,6 +1,7 @@
 package cpu;
 
-//TODO Optimize the banking of registers
+import utils.ByteUtils;
+
 public class CPU {
 
 	public static interface IProcessor {
@@ -49,7 +50,6 @@ public class CPU {
 	protected final CPSR cpsr; //CPSR (CONDITION CODE FLAGS AND CURRENT MODE BITS)
 
 	private int pc;
-	private boolean branched;
 
 	public CPU() {
 		arm = new ARMProcessor(this);
@@ -132,11 +132,11 @@ public class CPU {
 		else
 			setHighReg((byte) (reg - 0x8), value);
 	}
-	
+
 	protected int getUserReg(byte reg) {
 		return regs[reg & 0xF][0];
 	}
-	
+
 	protected void setUserReg(byte reg, int value) {
 		regs[reg & 0xF][0] = value;
 	}
@@ -167,53 +167,8 @@ public class CPU {
 		regs[13][cpsr.mapHighRegister((byte) 5)] = val;
 	}
 
-	protected int setAddFlags(int op1, int op2) {
-		int result = op1 + op2;
-		//Carry if unsigned value has Bit 32 SET
-		cpsr.carry = ((op1 & 0xffffffffL) + (op2 & 0xffffffffL) > 0xffffffffL);
-		//Overflow if two positives result in a negative or two negatives result in a positive
-		cpsr.overflow = (op1 >= 0 && op2 >= 0 && result < 0) || (op1 < 0 && op2 < 0 && result >= 0);
-		cpsr.negative = (result < 0);
-		cpsr.zero = (result == 0);
-		return result;
-	}
-
-	protected int setSubFlags(int op1, int op2) {
-		int result = op1 - op2;
-		//Odd, but must be true because a CMP calls this and CS (Carry SET) is unsigned higher or same o.0
-		cpsr.carry = ((op1 & 0xffffffffL) >= (op2 & 0xffffffffL));
-		//Overflow if two positives result in a negative or two negatives result in a positive
-		cpsr.overflow = (op1 >= 0 && op2 <= 0 && result < 0) || (op1 < 0 && op2 > 0 && result >= 0);
-		cpsr.negative = (result < 0);
-		cpsr.zero = (result == 0);
-		return result;
-	}
-
-	protected int setAddCarryFlags(int op1, int op2) {
-		int result = op1 + op2 + ((cpsr.carry) ? 1 : 0);
-		//Carry if unsigned value has Bit 32 SET
-		cpsr.carry = ((op1 & 0xffffffffL) + (op2 & 0xffffffffL) + ((cpsr.carry) ? 1 : 0) > 0xffffffffL);
-		//Overflow if two positives result in a negative or two negatives result in a positive
-		cpsr.overflow = (op1 >= 0 && op2 >= 0 && result < 0) || (op1 < 0 && op2 < 0 && result >= 0);
-		cpsr.negative = (result < 0);
-		cpsr.zero = (result == 0);
-		return result;
-	}
-
-	protected int setSubCarryFlags(int op1, int op2) {
-		//SBC Rd, Rs (Rd = Rd - Rs - NOT C-bit)
-		int result = op1 - op2 - ((cpsr.carry) ? 0 : 1);
-		//Unsigned higher or same including carry
-		cpsr.carry = ((op1 & 0xffffffffL) - (op2 & 0xffffffffL) - ((cpsr.carry) ? 0 : 1) >= 0);
-		//Overflow if two positives result in a negative or two negatives result in a positive
-		cpsr.overflow = (op1 >= 0 && op2 <= 0 && result < 0) || (op1 < 0 && op2 > 0 && result >= 0);
-		cpsr.negative = (result < 0);
-		cpsr.zero = (result == 0);
-		return result;
-	}
-
 	protected void branch(int address) {
-		//TODO Update the PC and set branched to true
+		//TODO Update the PC
 	}
 
 	protected int read32(int address) {
@@ -250,19 +205,40 @@ public class CPU {
 	protected void softwareInterrupt(byte high, byte mid, byte low) {
 
 	}
-	
+
 	protected void undefinedTrap() {
-		
+
 	}
 
 	protected void undefinedInstr(String info) {
-
+		System.err.println("WARNING: Undefined instruction @[" + ByteUtils.hex(pc) + "]: " + info);
 	}
-	
-	
 
 	protected byte accessROM(int pc) {
 		return 0;
 	}
 
+	public void regDump() {
+		System.out.println("---------------------------------------------REG DUMP---------------------------------------------");
+		System.out.println("Actual PC: " + ByteUtils.hex(pc));
+		System.out.println("PC: " + dr(15,0) + "\tLR: " + dr(14,0) + "\tSP: " + dr(13,0));
+		System.out.println("CPSR: " +  cpsr.toString());
+		System.out.println("SPSR_fiq: " + CPSR.toString(spsr[0]));
+		System.out.println("SPSR_irq: " + CPSR.toString(spsr[1]));
+		System.out.println("SPSR_svc: " + CPSR.toString(spsr[2]));
+		System.out.println("SPSR_abt: " + CPSR.toString(spsr[3]));
+		System.out.println("SPSR_und: " + CPSR.toString(spsr[4]));
+		for (int i = 0; i <= 7; ++i)
+			System.out.println("r" + i + ": " + dr(i,0));
+		for (int i = 8; i <= 12; ++i)
+			System.out.println("r" + i + ": " + dr(i,0) + "\tr" + i + "_fiq: " + dr(i,1));
+		for (int i = 13; i <= 14; ++i)
+			System.out.println("r" + i + "_fiq: " + dr(i,1) + "   r" + i + "_irq: " + dr(i,2) + "   r" + i + "_svc: " + dr(i,3) + "   r" + i + "_abt: " + dr(i,4) + "   r" + i + "_und: " + dr(i,5));
+		System.out.println("---------------------------------------------END DUMP---------------------------------------------");
+	}
+
+	//Dump reg (hex value)
+	private String dr(int r, int i) {
+		return ByteUtils.hex(regs[r][i]);
+	}
 }
