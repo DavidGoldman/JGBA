@@ -17,6 +17,10 @@ import static cpu.ARMDataOpCode.SUB;
 import static cpu.ARMDataOpCode.TEQ;
 import static cpu.ARMDataOpCode.TST;
 
+/*
+ * TODO: Implement edge case for STM 
+ *      -Writeback with Rb included in Rlist: Store OLD base if Rb is FIRST entry in Rlist, otherwise store NEW base
+ */
 public class ARMProcessor implements CPU.IProcessor {
 
 	private final CPU cpu;

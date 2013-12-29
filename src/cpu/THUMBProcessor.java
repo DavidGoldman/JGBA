@@ -18,7 +18,8 @@ import static cpu.THUMBALUOpCode.SBC;
 import static cpu.THUMBALUOpCode.TST;
 
 /*
- * TODO Handle pipelining/instructions modifying the pipeline flow
+ * TODO: Implement edge case for STM 
+ *      -Writeback with Rb included in Rlist: Store OLD base if Rb is FIRST entry in Rlist, otherwise store NEW base
  */
 public class THUMBProcessor implements CPU.IProcessor {
 
