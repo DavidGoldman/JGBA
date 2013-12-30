@@ -48,6 +48,7 @@ public class CPU {
 	private final THUMBProcessor thumb;
 
 	protected final CPSR cpsr; //CPSR (CONDITION CODE FLAGS AND CURRENT MODE BITS)
+	
 
 	private int pc;
 
@@ -98,11 +99,11 @@ public class CPU {
 	 * @param reg Register to access
 	 * @return The value in (reg & 0x7)
 	 */
-	protected int getLowReg(byte reg) {
+	protected int getLowReg(int reg) {
 		return regs[reg & 0x7][0];
 	}
 
-	protected void setLowReg(byte reg, int value) {
+	protected void setLowReg(int reg, int value) {
 		regs[reg & 0x7][0] = value;
 	}
 
@@ -112,11 +113,11 @@ public class CPU {
 	 * @param reg Register MINUS 8, thus to access register 8, pass in 0
 	 * @return The value in ((reg  & 0x7) + 8) (bank)
 	 */
-	protected int getHighReg(byte reg) {
+	protected int getHighReg(int reg) {
 		return regs[(reg & 0x7) + 0x8][cpsr.mapHighRegister(reg)];
 	}
 
-	protected void setHighReg(byte reg, int value) {
+	protected void setHighReg(int reg, int value) {
 		regs[(reg & 0x7) + 0x8][cpsr.mapHighRegister(reg)] = value;
 	}
 

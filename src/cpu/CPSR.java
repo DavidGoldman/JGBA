@@ -108,7 +108,7 @@ public class CPSR {
 		mode = SUPERVISOR;
 	}
 
-	public int mapHighRegister(byte reg) {
+	public int mapHighRegister(int reg) {
 		return HIGH_REG_MAP[reg & 0x7][mode & 0xF];
 	}
 
