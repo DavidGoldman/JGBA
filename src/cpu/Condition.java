@@ -82,9 +82,8 @@ public class Condition {
 	 * 
 	 * @param cond Condition byte (0 - 14)
 	 * @param cpsr Status Register
-	 * @throws IllegalArgumentException When cond is not valid
 	 */
-	public static boolean condition(byte cond, CPSR cpsr) throws IllegalArgumentException {
+	public static boolean condition(byte cond, CPSR cpsr) {
 		switch(cond) {
 		case EQ: return cpsr.zero; //Z set
 		case NE: return !cpsr.zero; //Z clear
@@ -108,9 +107,7 @@ public class Condition {
 		case LE: return cpsr.zero || cpsr.negative != cpsr.overflow; //Z set OR (Not equal to V)
 		
 		case AL: return true;
-		default:
-			return false;
-			//throw new IllegalArgumentException("Invalid condition " + cond);
+		default: return false;
 		}
 	}
 	
