@@ -121,24 +121,30 @@ public class CPU {
 		regs[(reg & 0x7) + 0x8][cpsr.mapHighRegister(reg)] = value;
 	}
 
-	protected int getReg(byte reg) {
-		reg = (byte) (reg & 0xF);
-		return (reg <= 0x7) ? getLowReg(reg) : getHighReg((byte) (reg - 0x8));
+	/**
+	 * Read from a register.
+	 * 
+	 * @param reg Register to access (0-15)
+	 * @return The value in (reg & 0xF) (bank)
+	 */
+	protected int getReg(int reg) {
+		reg = reg & 0xF;
+		return (reg <= 0x7) ? getLowReg(reg) : getHighReg(reg - 0x8);
 	}
 
-	protected void setReg(byte reg, int value) {
-		reg = (byte) (reg & 0xF);
+	protected void setReg(int reg, int value) {
+		reg = reg & 0xF;
 		if (reg <= 0x7)
 			setLowReg(reg, value);
 		else
-			setHighReg((byte) (reg - 0x8), value);
+			setHighReg(reg - 0x8, value);
 	}
 
-	protected int getUserReg(byte reg) {
+	protected int getUserReg(int reg) {
 		return regs[reg & 0xF][0];
 	}
 
-	protected void setUserReg(byte reg, int value) {
+	protected void setUserReg(int reg, int value) {
 		regs[reg & 0xF][0] = value;
 	}
 
@@ -150,22 +156,22 @@ public class CPU {
 	 * @return The link register for the current mode.
 	 */
 	protected int getLR() {
-		return regs[14][cpsr.mapHighRegister((byte) 6)];
+		return regs[14][cpsr.mapHighRegister(6)];
 	}
 
 	protected void setLR(int val) {
-		regs[14][cpsr.mapHighRegister((byte) 6)] = val;
+		regs[14][cpsr.mapHighRegister(6)] = val;
 	}
 
 	/**
 	 * @return The stack pointer for the current mode.
 	 */
 	protected int getSP() {
-		return regs[13][cpsr.mapHighRegister((byte) 5)];
+		return regs[13][cpsr.mapHighRegister(5)];
 	}
 
 	protected void setSP(int val) {
-		regs[13][cpsr.mapHighRegister((byte) 5)] = val;
+		regs[13][cpsr.mapHighRegister(5)] = val;
 	}
 
 	protected void branch(int address) {
@@ -203,7 +209,7 @@ public class CPU {
 
 	}
 
-	protected void softwareInterrupt(byte high, byte mid, byte low) {
+	protected void softwareInterrupt(int arg) {
 
 	}
 

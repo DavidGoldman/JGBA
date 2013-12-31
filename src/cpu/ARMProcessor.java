@@ -29,29 +29,29 @@ public class ARMProcessor implements CPU.IProcessor {
 		this.cpu = cpu;
 	}
 
-	private int getRegDelayedPC(byte reg) {
+	private int getRegDelayedPC(int reg) {
 		return (reg & 0xF) == 0xF ? cpu.getPC() + 4 : cpu.getReg(reg);
 	}
 
-	private int getUserRegDelayedPC(byte reg) {
+	private int getUserRegDelayedPC(int reg) {
 		return (reg & 0xF) == 0xF ? cpu.getPC() + 4 : cpu.getUserReg(reg);
 	}
 
-	private void setRegSafe(byte reg, int val) {
+	private void setRegSafe(int reg, int val) {
 		if ((reg & 0xF) == 0xF)
 			cpu.branch(val & 0xFFFFFFFC);
 		else
 			cpu.setReg(reg, val);
 	}
 
-	private void setUserRegSafe(byte reg, int val) {
+	private void setUserRegSafe(int reg, int val) {
 		if ((reg & 0xF) == 0xF)
 			cpu.branch(val & 0xFFFFFFFC);
 		else
 			cpu.setUserReg(reg, val);
 	}
 
-	private void setRegSafeCPSR(byte reg, int val) {
+	private void setRegSafeCPSR(int reg, int val) {
 		if ((reg & 0xF) == 0xF) {
 			cpu.loadCPSR();
 			val &= (cpu.cpsr.thumb) ? 0xFFFFFFFE : 0xFFFFFFFC;
@@ -69,94 +69,91 @@ public class ARMProcessor implements CPU.IProcessor {
 	 */
 	@Override
 	public void execute(int pc) {
-		/*4 Bytes stored in Little-Endian format
-		  31-24, 23-16 */
-		byte top = cpu.accessROM(pc+3), midTop = cpu.accessROM(pc+2);
-		/*15-8, 7-0*/
-		byte midBot = cpu.accessROM(pc+1), bot = cpu.accessROM(pc);
+		//TODO Get instruction
+		int instr = 0;
 
 		/*Top four bits of top are the condition codes
 		  Byte indices start at 0, domain [0, 31]*/
-		if (Condition.condition((byte) ((top >>> 4) & 0xF), cpu.cpsr)) {
-			byte bit27_to_24 = (byte) (top & 0xF);
-			byte bit23_to_20 = (byte) ((midTop >>> 4) & 0xF);
+		if (Condition.condition((byte) (instr >>> 28), cpu.cpsr)) {
+			byte bit27_to_24 = (byte) ((instr >>> 24) & 0xF);
+			byte bit23_to_20 = (byte) ((instr >>> 20) & 0xF);
 
 			switch(bit27_to_24) {
 			case 0x0:
-				if ((bot & 0x10) == 0 || (bot & 0x80) == 0) //Bit 4 or bit 7 clear
-					dataProcPSRReg(top, midTop, midBot, bot);
-				else if ((bot & 0x60) == 0) { //Bit 6,5 are CLEAR
+				if ((instr & 0x10) == 0 || (instr & 0x80) == 0) //Bit 4 or bit 7 clear
+					dataProcPSRReg(instr);
+				else if ((instr & 0x60) == 0) { //Bit 6,5 are CLEAR
 					if ((bit23_to_20 & 0xC) == 0)
-						multiply(midTop, midBot, bot);
+						multiply(instr);
 					else if ((bit23_to_20 & 0x8) == 0x8)
-						multiplyLong(midTop, midBot, bot);
+						multiplyLong(instr);
 					else
 						cpu.undefinedInstr("Illegal multiply varation");
 				}
 				else { //Bit 6,5 are NOT both CLEAR, implies Halfword DT
 					if ((bit23_to_20 & 0x4) == 0x4) //Bit 22 is SET
-						halfwordDTImmPost(midTop, midBot, bot);
-					else if ((midBot & 0xF) == 0) //Bit 22 is CLEAR AND Bit 11-8 CLEAR
-						halfwordDTRegPost(midTop, midBot, bot);
+						halfwordDTImmPost(instr);
+					else if ((instr & 0xF00) == 0) //Bit 22 is CLEAR AND Bit 11-8 CLEAR
+						halfwordDTRegPost(instr);
 					else
 						cpu.undefinedInstr("Illegal (post) halfword data transfer variation");
 				}
 				break;
 			case 0x1:
-				if (midTop == (byte)0x2F && midBot == (byte)0xFF && (bot & 0xF0) == 0x10) //0x12FFF1, Rn
-					branchAndExchange((byte) (bot & 0xF));
-				else if ((bot & 0x10) == 0 || (bot & 0x80) == 0) //Bit 4 or bit 7 clear
-					dataProcPSRReg(top, midTop, midBot, bot); 
-				else if ((bot & 0x60) == 0) { //Bit 6,5 are CLEAR
-					if ((bit23_to_20 & 0xB) == 0 && (midBot & 0xF) == 0) //Bit 27-25 CLEAR, Bit 24 SET, BIT 23,21,20 CLEAR, Bit 11-8 CLEAR
-						singleDataSwap(midTop, midBot, bot);
+				if ((instr & 0xFFFFF0) == 0x2FFF10)  //0x12FFF1, Rn
+					branchAndExchange(instr);
+				else if ((instr & 0x10) == 0 || (instr & 0x80) == 0) //Bit 4 or bit 7 clear
+					dataProcPSRReg(instr); 
+				else if ((instr & 0x60) == 0) { //Bit 6,5 are CLEAR
+					if ((bit23_to_20 & 0xB) == 0 && (instr & 0xF00) == 0) //Bit 27-25 CLEAR, Bit 24 SET, BIT 23,21,20 CLEAR, Bit 11-8 CLEAR
+						singleDataSwap(instr);
 					else
 						cpu.undefinedInstr("Illegal single data swap variation");
 				}
 				else { //Bit 6,5 are NOT both CLEAR, implies Halfword DT
 					if ((bit23_to_20 & 0x4) == 0x4) //Bit 22 is SET
-						halfwordDTImmPre(midTop, midBot, bot);
-					else if ((midBot & 0xF) == 0) //Bit 22 is CLEAR AND Bit 11-8 CLEAR
-						halfwordDTRegPre(midTop, midBot, bot);
+						halfwordDTImmPre(instr);
+					else if ((instr & 0xF00) == 0) //Bit 22 is CLEAR AND Bit 11-8 CLEAR
+						halfwordDTRegPre(instr);
 					else
 						cpu.undefinedInstr("Illegal (pre) halfword data transfer variation");
 				}
 				break;
-			case 0x2: dataProcPSRImm(top, midTop, midBot, bot); break;
-			case 0x3: dataProcPSRImm(top, midTop, midBot, bot); break;
-			case 0x4: singleDataTransferImmPost(midTop, midBot, bot); break;
-			case 0x5: singleDataTransferImmPre(midTop, midBot, bot); break;
+			case 0x2: dataProcPSRImm(instr); break;
+			case 0x3: dataProcPSRImm(instr); break;
+			case 0x4: singleDataTransferImmPost(instr); break;
+			case 0x5: singleDataTransferImmPre(instr); break;
 			case 0x6: 
-				if ((bot & 0x10) == 0) /*Bit 4 CLEAR*/
-					singleDataTransferRegPost(midTop, midBot, bot);
+				if ((instr & 0x10) == 0) /*Bit 4 CLEAR*/
+					singleDataTransferRegPost(instr);
 				else
 					undefinedTrap();
 				break;
 			case 0x7:
-				if ((bot & 0x10) == 0) /*Bit 4 CLEAR*/
-					singleDataTransferRegPre(midTop, midBot, bot);
+				if ((instr & 0x10) == 0) /*Bit 4 CLEAR*/
+					singleDataTransferRegPre(instr);
 				else
 					undefinedTrap();
 				break;
-			case 0x8: blockDataTransferPost(midTop, midBot, bot); break;
-			case 0x9: blockDataTransferPre(midTop, midBot, bot); break;
-			case 0xA: branch(midTop, midBot, bot); break;
-			case 0xB: branchLink(midTop, midBot, bot); break;
-			case 0xC: coprocDataTransferPost(midTop, midBot, bot); break;
-			case 0xD: coprocDataTransferPre(midTop, midBot, bot); break;
+			case 0x8: blockDataTransferPost(instr); break;
+			case 0x9: blockDataTransferPre(instr); break;
+			case 0xA: branch(instr); break;
+			case 0xB: branchLink(instr); break;
+			case 0xC: coprocDataTransferPost(instr); break;
+			case 0xD: coprocDataTransferPre(instr); break;
 			case 0xE:
-				if ((bot & 0x10) == 0) /*Bit 4 CLEAR*/
-					coprocDataOperation(midTop, midBot, bot);
+				if ((instr & 0x10) == 0) /*Bit 4 CLEAR*/
+					coprocDataOperation(instr);
 				else
-					coprocRegisterTransfer(midTop, midBot, bot);
+					coprocRegisterTransfer(instr);
 				break;
-			case 0xF: softwareInterrupt(midTop, midBot, bot); break;
+			case 0xF: softwareInterrupt(instr); break;
 			}
 
 		}
 	}
 
-	private void branchAndExchange(byte rn) {
+	private void branchAndExchange(int rn) {
 		int address = cpu.getReg(rn);
 		if ((address & 0x1) == 0)
 			cpu.branch(address & 0xFFFFFFFC); //Word aligned
@@ -166,23 +163,24 @@ public class ARMProcessor implements CPU.IProcessor {
 		}
 	}
 
-	private void dataProcPSRReg(byte top, byte midTop, byte midBot, byte bot) {
-		byte opcode = (byte) (((top & 0x1) << 3) | ((midTop & 0xE0) >>> 5));
-		byte rd = (byte) ((midBot & 0xF0) >>> 4);
-		byte shift = (byte) (((midBot & 0xF) << 4) | ((bot & 0xF0) >>> 4));
-		byte rm = (byte) (bot & 0xF);
-		if ((midTop & 0x10) == 0x10) //Bit 20 SET
-			dataProcS(opcode, rd, getRegDelayedPC(midTop), getOp2S(shift, rm));
+	private void dataProcPSRReg(int instr) {
+		byte opcode = (byte) ((instr >>> 21) & 0xF);
+		int shift = (instr >>> 4) & 0xFF;
+		//rd = (instr >>> 12) & 0xF
+		//rn = (instr >>> 16) & 0xF
+		//rm = instr & 0xF
+		if ((instr & 0x100000) == 0x100000) //Bit 20 SET
+			dataProcS(opcode, instr >>> 12, getRegDelayedPC(instr >>> 16), getOp2S(shift, instr));
 		else if(opcode >= TST && opcode <= CMN) //PSR Transfer
-			psrTransfer(midTop, midBot, bot);
-		else		
-			dataProc(opcode, rd, getRegDelayedPC(midTop), getOp2(shift, rm));
+			psrTransfer(instr);
+		else
+			dataProc(opcode, instr >>> 12, getRegDelayedPC(instr >>> 16), getOp2(shift, instr));
 	}
 
-	private int getOp2(byte shift, byte rm) {
+	private int getOp2(int shift, int rm) {
 		byte type = (byte)((shift & 0x6) >>> 1); //type is bit 6-5
 		if ((shift & 0x1) == 0) { //shift unsigned integer
-			int imm5 = ((shift & 0xF8) >>> 3); //bit 11-7
+			int imm5 = shift >>> 3; //bit 11-7
 			switch(type) {
 			case 0: return lsli(rm, imm5);
 			case 1: return lsri(rm, imm5);
@@ -191,7 +189,7 @@ public class ARMProcessor implements CPU.IProcessor {
 			}
 		}
 		else {
-			byte rs = (byte) ((shift & 0xF0) >>> 4); //rs is bit 11-8
+			int rs = shift >>> 4; //rs is bit 11-8
 			switch(type) {
 			case 0: return lslr(rm, rs);
 			case 1: return lsrr(rm, rs);
@@ -204,21 +202,21 @@ public class ARMProcessor implements CPU.IProcessor {
 		//return 0;
 	}
 
-	private int lsli(byte rm, int imm5) {
+	private int lsli(int rm, int imm5) {
 		return cpu.getReg(rm) << imm5;
 	}
 
-	private int lsri(byte rm, int imm5) {
+	private int lsri(int rm, int imm5) {
 		return (imm5 == 0) ? 0 : cpu.getReg(rm) >>> imm5; //LSR 0 is actually LSR #32
 	}
 
-	private int asri(byte rm, int imm5) {
+	private int asri(int rm, int imm5) {
 		if (imm5 == 0) //ASR 0 is actually ASR #32 -> same as ASR #31 value wise
 			imm5 = 31; 
 		return cpu.getReg(rm) >> imm5;
 	}
 
-	private int rori(byte rm, int imm5) {
+	private int rori(int rm, int imm5) {
 		int reg = cpu.getReg(rm);
 		if (imm5 > 0) //ROR
 			return (reg >>> imm5) | (reg << (32 - imm5));
@@ -226,19 +224,19 @@ public class ARMProcessor implements CPU.IProcessor {
 			return ((cpu.cpsr.carry) ? 0x80000000 : 0) | (reg >>> 1);
 	}
 
-	private int lslr(byte rm, byte rs) {
+	private int lslr(int rm, int rs) {
 		int reg = getRegDelayedPC(rm);
 		int shift = getRegDelayedPC(rs) & 0xFF;
 		return (shift < 32) ? reg << shift : 0;
 	}
 
-	private int lsrr(byte rm, byte rs) {
+	private int lsrr(int rm, int rs) {
 		int reg = getRegDelayedPC(rm);
 		int shift = getRegDelayedPC(rs) & 0xFF;
 		return (shift < 32) ? reg >>> shift : 0;
 	}
 
-	private int asrr(byte rm, byte rs) {
+	private int asrr(int rm, int rs) {
 		int reg = getRegDelayedPC(rm);
 		int shift = getRegDelayedPC(rs) & 0xFF;
 		if (shift > 31)
@@ -246,16 +244,16 @@ public class ARMProcessor implements CPU.IProcessor {
 		return reg >> shift;
 	}
 
-	private int rorr(byte rm, byte rs) {
+	private int rorr(int rm, int rs) {
 		int reg = getRegDelayedPC(rm);
 		int shift = getRegDelayedPC(rs) & 0x1F;
 		return (shift > 0) ? (reg >>> shift) | (reg << (32 - shift)) : reg;
 	}
 
-	private int getOp2S(byte shift, byte rm) {
+	private int getOp2S(int shift, int rm) {
 		byte type = (byte)((shift & 0x6) >>> 1); //type is bit 6-5
 		if ((shift & 0x1) == 0) { //shift unsigned integer
-			int imm5 = ((shift & 0xF8) >>> 3); //bit 11-7
+			int imm5 = shift >>> 3;
 			switch(type) {
 			case 0: return lslis(rm, imm5);
 			case 1: return lsris(rm, imm5);
@@ -264,7 +262,7 @@ public class ARMProcessor implements CPU.IProcessor {
 			}
 		}
 		else {
-			byte rs = (byte) ((shift & 0xF0) >>> 4); //rs is bit 11-8
+			int rs = shift >>> 4; //rs is bit 11-8
 			switch(type) {
 			case 0: return lslrs(rm, rs);
 			case 1: return lsrrs(rm, rs);
@@ -277,14 +275,14 @@ public class ARMProcessor implements CPU.IProcessor {
 		//return 0;
 	}
 
-	private int lslis(byte rm, int imm5) {
+	private int lslis(int rm, int imm5) {
 		int reg = cpu.getReg(rm);
 		if (imm5 > 0)
 			cpu.cpsr.carry = (reg << (imm5-1) < 0);
 		return reg << imm5;
 	}
 
-	private int lsris(byte rm, int imm5) {
+	private int lsris(int rm, int imm5) {
 		int reg = cpu.getReg(rm);
 		if (imm5 > 0) {
 			cpu.cpsr.carry = (((reg >>> (imm5 - 1)) & 0x1) == 0x1);
@@ -296,7 +294,7 @@ public class ARMProcessor implements CPU.IProcessor {
 		}
 	}
 
-	private int asris(byte rm, int imm5) {
+	private int asris(int rm, int imm5) {
 		int reg = cpu.getReg(rm);
 		if (imm5 > 0) {
 			cpu.cpsr.carry = (((reg >>> (imm5 - 1)) & 0x1) == 0x1);
@@ -308,7 +306,7 @@ public class ARMProcessor implements CPU.IProcessor {
 		}
 	}
 
-	private int roris(byte rm, int imm5) {
+	private int roris(int rm, int imm5) {
 		int reg = cpu.getReg(rm);
 		if (imm5 > 0) { //ROR
 			cpu.cpsr.carry = (((reg >>> (imm5 - 1)) & 0x1) == 0x1);
@@ -322,7 +320,7 @@ public class ARMProcessor implements CPU.IProcessor {
 		}
 	}
 
-	private int lslrs(byte rm, byte rs) {
+	private int lslrs(int rm, int rs) {
 		int reg = getRegDelayedPC(rm);
 		int shift = getRegDelayedPC(rs) & 0xFF;
 		if (shift > 0) {
@@ -342,7 +340,7 @@ public class ARMProcessor implements CPU.IProcessor {
 		return reg; //0 shift just returns reg
 	}
 
-	private int lsrrs(byte rm, byte rs) {
+	private int lsrrs(int rm, int rs) {
 		int reg = getRegDelayedPC(rm);
 		int shift = getRegDelayedPC(rs) & 0xFF;
 		if (shift > 0) {
@@ -362,7 +360,7 @@ public class ARMProcessor implements CPU.IProcessor {
 		return reg; //0 shift just returns reg
 	}
 
-	private int asrrs(byte rm, byte rs) {
+	private int asrrs(int rm, int rs) {
 		int reg = getRegDelayedPC(rm);
 		int shift = getRegDelayedPC(rs) & 0xFF;
 		if (shift > 0) {
@@ -378,7 +376,7 @@ public class ARMProcessor implements CPU.IProcessor {
 		return reg; //0 shift just returns reg
 	}
 
-	private int rorrs(byte rm, byte rs) {
+	private int rorrs(int rm, int rs) {
 		int reg = getRegDelayedPC(rm);
 		int rotate = getRegDelayedPC(rs) & 0xFF;
 		if (rotate > 0) {
@@ -394,35 +392,37 @@ public class ARMProcessor implements CPU.IProcessor {
 		return reg; //0 shift just returns reg
 	}
 
-	private void dataProcPSRImm(byte top, byte midTop, byte midBot, byte bot) {
-		byte opcode = (byte) (((top & 0x1) << 3) | ((midTop & 0xE0) >>> 5));
-		byte rd = (byte) ((midBot & 0xF0) >>> 4);
-		if ((midTop & 0x10) == 0x10) //Bit 20 SET
-			dataProcS(opcode, rd, cpu.getReg(midTop), immOpS(bot & 0xFF, midBot & 0xF));
+	private void dataProcPSRImm(int instr) {
+		byte opcode = (byte) ((instr >>> 21) & 0xF);
+		//rd = (instr >>> 12) & 0xF
+		//rn = (instr >>> 16) & 0xF
+		//rm = instr & 0xF
+		//rotate = (instr >>> 8) & 0xF;
+		if ((instr & 0x100000) == 0x100000) //Bit 20 SET
+			dataProcS(opcode, instr >>> 12, cpu.getReg(instr >>> 16), immOpS(instr & 0xFF, (instr >>> 8) & 0xF));
 		else if(opcode >= TST && opcode <= CMN) //PSR Transfer
-			psrTransferImm(midTop, midBot, bot);
+			psrTransferImm(instr);
 		else		
-			dataProc(opcode, rd, cpu.getReg(midTop), immOp(bot & 0xFF, midBot & 0xF));
+			dataProc(opcode, instr >>> 12, cpu.getReg(instr >>> 16), immOp(instr & 0xFF, (instr >>> 8) & 0xF));
 	}
 
-	private void psrTransfer(byte midTop, byte midBot, byte bot) {
-		boolean spsr = ((midTop & 0x40) == 0x40); //Bit 22
-		byte bit21_to_16 = (byte) (midTop & 0x3F);
-		if (bit21_to_16 == (byte) 0x0F && (midBot & 0xF) == 0 && bot == 0) //Bit 21-16 is 001111 (0x0F), bit 11-0 is 0
-			mrs((byte)((midBot & 0xF0) >>> 4), spsr); //Rd is bit 15-12
-		else if (bit21_to_16 == (byte) 0x29 && midBot == (byte) (0xF0) && (bot & 0xF0) == 0) //Bit 21-16 is 101001 (0x29), bit 15-12 is 1, bit 11-4 is 0
-			msr(bot, spsr); //Rm is bit 3-0
-		else if (bit21_to_16 == (byte) 0x28 && midBot == (byte) (0xF0) && (bot & 0xF0) == 0) //Bit 21-16 is 101000 (0x28), bit 15-12 is 1, bit 11-4 is 0
-			msrFLG(cpu.getReg(bot), spsr); //Rm is bit 3-0
+	private void psrTransfer(int instr) {
+		boolean spsr = ((instr & 0x400000) == 0x400000); //Bit 22
+		if ((instr & 0x3F0FFF) == 0x0F000) //Bit 21-16 is 001111 (0x0F), bit 11-0 is 0
+			mrs(instr >>> 12, spsr); //Rd is bit 15-12
+		else if ((instr & 0x3FFFF0) == 0x29F000) //Bit 21-16 is 101001 (0x29), bit 15-12 is 1, bit 11-4 is 0
+			msr(instr, spsr); //Rm is bit 3-0
+		else if ((instr & 0x3FFFF0) == 0x28F000) //Bit 21-16 is 101000 (0x28), bit 15-12 is 1, bit 11-4 is 0
+			msrFLG(cpu.getReg(instr), spsr); //Rm is bit 3-0
 		else
 			cpu.undefinedInstr("Illegal (reg) psr transfer variation");
 	}
 
-	private void mrs(byte reg, boolean spsr) {
+	private void mrs(int reg, boolean spsr) {
 		setRegSafe(reg, (spsr) ? cpu.getSPSR() : cpu.cpsr.save());
 	}
 
-	private void msr(byte reg, boolean spsr) {
+	private void msr(int reg, boolean spsr) {
 		if (spsr)
 			cpu.setSPSR(cpu.getReg(reg));
 		else
@@ -436,9 +436,9 @@ public class ARMProcessor implements CPU.IProcessor {
 			cpu.cpsr.loadFlagBits(val);
 	}
 
-	private void psrTransferImm(byte midTop, byte midBot, byte bot) {
-		if ((midTop & 0x3F) == 0x28 && (midBot & 0xF0) == 0xF0) //Bit 21-16 is 101000 (0x28), bit 15-12 is 1
-			msrFLG(immOp(bot & 0xFF, midBot & 0xF), (midTop & 0x40) == 0x40);
+	private void psrTransferImm(int instr) {
+		if ((instr & 0x3FF000) == 0x28F000) //Bit 21-16 is 101000 (0x28), bit 15-12 is 1
+			msrFLG(immOp(instr & 0xFF, (instr >>> 8) & 0xF), (instr & 0x400000) == 0x400000);
 		else
 			cpu.undefinedInstr("Illegal (imm) psr transfer variation");
 	}
@@ -459,7 +459,7 @@ public class ARMProcessor implements CPU.IProcessor {
 		return val;
 	}
 
-	private void dataProcS(byte opcode, byte rd, int op1, int op2) {
+	private void dataProcS(byte opcode, int rd, int op1, int op2) {
 		switch(opcode) {
 		case AND: ands(rd, op1, op2); break;
 		case EOR: eors(rd, op1, op2); break;
@@ -480,7 +480,7 @@ public class ARMProcessor implements CPU.IProcessor {
 		}
 	}
 
-	private void dataProc(byte opcode, byte rd, int op1, int op2) {
+	private void dataProc(byte opcode, int rd, int op1, int op2) {
 		switch(opcode) {
 		case AND: and(rd, op1, op2); break;
 		case EOR: eor(rd, op1, op2); break;
@@ -501,155 +501,158 @@ public class ARMProcessor implements CPU.IProcessor {
 		}
 	}
 
-	private void and(byte rd, int op1, int op2) {
+	private void and(int rd, int op1, int op2) {
 		setRegSafe(rd, op1 & op2);
 	}
 
-	private void ands(byte rd, int op1, int op2) {
+	private void ands(int rd, int op1, int op2) {
 		int val = op1 & op2;
 		cpu.cpsr.negative = (val < 0);
 		cpu.cpsr.zero = (val == 0);
 		setRegSafeCPSR(rd, val);
 	}
 
-	private void eor(byte rd, int op1, int op2) {
+	private void eor(int rd, int op1, int op2) {
 		setRegSafe(rd, op1 ^ op2);
 	}
 
-	private void eors(byte rd, int op1, int op2) {
+	private void eors(int rd, int op1, int op2) {
 		int val = op1 ^ op2;
 		cpu.cpsr.negative = (val < 0);
 		cpu.cpsr.zero = (val == 0);
 		setRegSafeCPSR(rd, val);
 	}
 
-	private void sub(byte rd, int op1, int op2) {
+	private void sub(int rd, int op1, int op2) {
 		setRegSafe(rd, op1 - op2);
 	}
 
-	private void subs(byte rd, int op1, int op2) {
+	private void subs(int rd, int op1, int op2) {
 		setRegSafeCPSR(rd, cpu.cpsr.setSubFlags(op1, op2));
 	}
 
-	private void rsb(byte rd, int op1, int op2) {
+	private void rsb(int rd, int op1, int op2) {
 		setRegSafe(rd, op2 - op1);
 	}
 
-	private void rsbs(byte rd, int op1, int op2) {
+	private void rsbs(int rd, int op1, int op2) {
 		setRegSafeCPSR(rd, cpu.cpsr.setSubFlags(op2, op1));
 	}
 
-	private void add(byte rd, int op1, int op2) {
+	private void add(int rd, int op1, int op2) {
 		setRegSafe(rd, op1 + op2);
 	}
 
-	private void adds(byte rd, int op1, int op2) {
+	private void adds(int rd, int op1, int op2) {
 		setRegSafeCPSR(rd, cpu.cpsr.setAddFlags(op1, op2));
 	}
 
-	private void adc(byte rd, int op1, int op2) {
+	private void adc(int rd, int op1, int op2) {
 		setRegSafe(rd, op1 + op2 + ((cpu.cpsr.carry) ? 1 : 0));
 	}
 
-	private void adcs(byte rd, int op1, int op2) {
+	private void adcs(int rd, int op1, int op2) {
 		setRegSafeCPSR(rd, cpu.cpsr.setAddCarryFlags(op1, op2));
 	}
 
-	private void sbc(byte rd, int op1, int op2) {
+	private void sbc(int rd, int op1, int op2) {
 		setRegSafe(rd, op1 - op2 - ((cpu.cpsr.carry) ? 0 : 1));
 	}
 
-	private void sbcs(byte rd, int op1, int op2) {
+	private void sbcs(int rd, int op1, int op2) {
 		setRegSafeCPSR(rd, cpu.cpsr.setSubCarryFlags(op1, op2));
 	}
 
-	private void rsc(byte rd, int op1, int op2) {
+	private void rsc(int rd, int op1, int op2) {
 		setRegSafe(rd, op2 - op1 - ((cpu.cpsr.carry) ? 0 : 1));
 	}
 
-	private void rscs(byte rd, int op1, int op2) {
+	private void rscs(int rd, int op1, int op2) {
 		setRegSafeCPSR(rd, cpu.cpsr.setSubCarryFlags(op2, op1));
 	}
 
-	private void tst(byte rd, int op1, int op2) {
+	private void tst(int rd, int op1, int op2) {
 		int val = op1 & op2;
 		cpu.cpsr.negative = (val < 0);
 		cpu.cpsr.zero = (val == 0);
 	}
 
-	private void teq(byte rd, int op1, int op2) {
+	private void teq(int rd, int op1, int op2) {
 		int val = op1 ^ op2;
 		cpu.cpsr.negative = (val < 0);
 		cpu.cpsr.zero = (val == 0);
 	}
 
-	private void cmp(byte rd, int op1, int op2) {
+	private void cmp(int rd, int op1, int op2) {
 		cpu.cpsr.setSubFlags(op1, op2);
 	}
 
-	private void cmn(byte rd, int op1, int op2) {
+	private void cmn(int rd, int op1, int op2) {
 		cpu.cpsr.setAddFlags(op1, op2);
 	}
 
-	private void orr(byte rd, int op1, int op2) {
+	private void orr(int rd, int op1, int op2) {
 		setRegSafe(rd, op1 | op2);
 	}
 
-	private void orrs(byte rd, int op1, int op2) {
+	private void orrs(int rd, int op1, int op2) {
 		int val = op1 | op2;
 		cpu.cpsr.negative = (val < 0);
 		cpu.cpsr.zero = (val == 0);
 		setRegSafeCPSR(rd, val);
 	}
 
-	private void mov(byte rd, int op1, int op2) {
+	private void mov(int rd, int op1, int op2) {
 		setRegSafe(rd, op2);
 	}
 
-	private void movs(byte rd, int op1, int op2) {
+	private void movs(int rd, int op1, int op2) {
 		cpu.cpsr.negative = (op2 < 0);
 		cpu.cpsr.zero = (op2 == 0);
 		setRegSafeCPSR(rd, op2);
 	}
 
-	private void bic(byte rd, int op1, int op2) {
+	private void bic(int rd, int op1, int op2) {
 		setRegSafe(rd, op1 & ~op2);
 	}
 
-	private void bics(byte rd, int op1, int op2) {
+	private void bics(int rd, int op1, int op2) {
 		int val = op1 & ~op2;
 		cpu.cpsr.negative = (val < 0);
 		cpu.cpsr.zero = (val == 0);
 		setRegSafeCPSR(rd, val);
 	}
 
-	private void mvn(byte rd, int op1, int op2) {
+	private void mvn(int rd, int op1, int op2) {
 		setRegSafe(rd, ~op2);
 	}
 
-	private void mvns(byte rd, int op1, int op2) {
+	private void mvns(int rd, int op1, int op2) {
 		op2 = ~op2;
 		cpu.cpsr.negative = (op2 < 0);
 		cpu.cpsr.zero = (op2 == 0);
 		setRegSafeCPSR(rd, op2);
 	}
 
-	private void multiply(byte midTop, byte midBot, byte bot) {
-		byte as = (byte) ((midTop & 0x30) >>> 4); //accumulate, set bits
+	private void multiply(int instr) {
+		byte as = (byte) ((instr >>> 20) & 0x3); //accumulate, set bits
+		//rd = (instr >>> 16) & 0xF
+		//rm = instr & 0xF
+		//rs = (instr >>> 8) & 0xF
+		//rn = (instr >>> 12) & 0xF
 		switch(as){
-		//We don't need to & 0xF -> methods will do it for us
-		case 0: mul(midTop, bot, midBot); break;
-		case 1: muls(midTop, bot, midBot); break;
-		case 2: mla(midTop, bot, midBot, (byte) ((midBot & 0xF0) >>> 4)); break;
-		case 3: mlas(midTop, bot, midBot, (byte) ((midBot & 0xF0) >>> 4)); break;
+		case 0: mul(instr >>> 16, instr, instr >>> 8); break;
+		case 1: muls(instr >>> 16, instr, instr >>> 8); break;
+		case 2: mla(instr >>> 16, instr, instr >>> 8, instr >>> 12); break;
+		case 3: mlas(instr >>> 16, instr, instr >>> 8, instr >>> 12); break;
 		}
 	}
 
-	private void mul(byte rd, byte rm, byte rs) {
+	private void mul(int rd, int rm, int rs) {
 		setRegSafe(rd, cpu.getReg(rm) * cpu.getReg(rs));
 	}
 
-	private void muls(byte rd, byte rm, byte rs) {
+	private void muls(int rd, int rm, int rs) {
 		int val = cpu.getReg(rm) * cpu.getReg(rs);
 		cpu.cpsr.carry = false;
 		cpu.cpsr.negative = (val < 0);
@@ -657,11 +660,11 @@ public class ARMProcessor implements CPU.IProcessor {
 		setRegSafe(rd, val);
 	}
 
-	private void mla(byte rd, byte rm, byte rs, byte rn) {
+	private void mla(int rd, int rm, int rs, int rn) {
 		setRegSafe(rd, cpu.getReg(rm)*cpu.getReg(rs) + cpu.getReg(rn));
 	}
 
-	private void mlas(byte rd, byte rm, byte rs, byte rn) {
+	private void mlas(int rd, int rm, int rs, int rn) {
 		int val = cpu.getReg(rm)*cpu.getReg(rs) + cpu.getReg(rn);
 		cpu.cpsr.carry = false;
 		cpu.cpsr.negative = (val < 0);
@@ -669,28 +672,31 @@ public class ARMProcessor implements CPU.IProcessor {
 		setRegSafe(rd, val);
 	}
 
-	private void multiplyLong(byte midTop, byte midBot, byte bot) {
-		byte sas = (byte) ((midTop & 0x70) >>> 4); //signed, accumulate, set bits
+	private void multiplyLong(int instr) {
+		byte sas = (byte) ((instr >>> 20) & 0x7); //signed, accumulate, set bits
+		//rdHi = (instr >>> 16) & 0xF
+		//rdLo = (instr >>> 12) & 0xF
+		//rm = instr & 0xF
+		//rs = (instr >>> 8) & 0xF
 		switch(sas) {
-		//We don't need to & 0xF -> methods will do it for us
-		case 0: umull(midTop, (byte) ((midBot & 0xF0) >>> 4), bot, midBot); break;
-		case 1: umulls(midTop, (byte) ((midBot & 0xF0) >>> 4), bot, midBot); break;
-		case 2: umlal(midTop, (byte) ((midBot & 0xF0) >>> 4), bot, midBot); break;
-		case 3: umlals(midTop, (byte) ((midBot & 0xF0) >>> 4), bot, midBot); break;
-		case 4: smull(midTop, (byte) ((midBot & 0xF0) >>> 4), bot, midBot); break;
-		case 5: smulls(midTop, (byte) ((midBot & 0xF0) >>> 4), bot, midBot); break;
-		case 6: smlal(midTop, (byte) ((midBot & 0xF0) >>> 4), bot, midBot); break;
-		case 7: smlals(midTop, (byte) ((midBot & 0xF0) >>> 4), bot, midBot); break;
+		case 0: umull(instr >>> 16, instr >>> 12, instr, instr >>> 8); break;
+		case 1: umulls(instr >>> 16, instr >>> 12, instr, instr >>> 8); break;
+		case 2: umlal(instr >>> 16, instr >>> 12, instr, instr >>> 8); break;
+		case 3: umlals(instr >>> 16, instr >>> 12, instr, instr >>> 8); break;
+		case 4: smull(instr >>> 16, instr >>> 12, instr, instr >>> 8); break;
+		case 5: smulls(instr >>> 16, instr >>> 12, instr, instr >>> 8); break;
+		case 6: smlal(instr >>> 16, instr >>> 12, instr, instr >>> 8); break;
+		case 7: smlals(instr >>> 16, instr >>> 12, instr, instr >>> 8); break;
 		}
 	}
 
-	private void umull(byte rdHi, byte rdLo, byte rm, byte rs) {
+	private void umull(int rdHi, int rdLo, int rm, int rs) {
 		long result = (cpu.getReg(rm) & 0xFFFFFFFFL)*(cpu.getReg(rs) & 0xFFFFFFFFL);
 		setRegSafe(rdHi, (int) (result >>> 32));
 		setRegSafe(rdLo, (int) result);
 	}
 
-	private void umulls(byte rdHi, byte rdLo, byte rm, byte rs) {
+	private void umulls(int rdHi, int rdLo, int rm, int rs) {
 		long result = (cpu.getReg(rm) & 0xFFFFFFFFL)*(cpu.getReg(rs) & 0xFFFFFFFFL);
 		cpu.cpsr.carry = false;
 		cpu.cpsr.negative = (result < 0);
@@ -699,13 +705,13 @@ public class ARMProcessor implements CPU.IProcessor {
 		setRegSafe(rdLo, (int) result);
 	}
 
-	private void umlal(byte rdHi, byte rdLo, byte rm, byte rs) {
+	private void umlal(int rdHi, int rdLo, int rm, int rs) {
 		long result = (cpu.getReg(rm) & 0xFFFFFFFFL)*(cpu.getReg(rs) & 0xFFFFFFFFL) + (((cpu.getReg(rdHi) & 0xFFFFFFFFL) << 32) | (cpu.getReg(rdLo) & 0xFFFFFFFFL));
 		setRegSafe(rdHi, (int) (result >>> 32));
 		setRegSafe(rdLo, (int) result);
 	}
 
-	private void umlals(byte rdHi, byte rdLo, byte rm, byte rs) {
+	private void umlals(int rdHi, int rdLo, int rm, int rs) {
 		long result = (cpu.getReg(rm) & 0xFFFFFFFFL)*(cpu.getReg(rs) & 0xFFFFFFFFL) + (((cpu.getReg(rdHi) & 0xFFFFFFFFL) << 32) | (cpu.getReg(rdLo) & 0xFFFFFFFFL));
 		cpu.cpsr.carry = false;
 		cpu.cpsr.negative = (result < 0);
@@ -714,13 +720,13 @@ public class ARMProcessor implements CPU.IProcessor {
 		setRegSafe(rdLo, (int) result);
 	}
 
-	private void smull(byte rdHi, byte rdLo, byte rm, byte rs) {
+	private void smull(int rdHi, int rdLo, int rm, int rs) {
 		long result = ((long) cpu.getReg(rm))*cpu.getReg(rs);
 		setRegSafe(rdHi, (int) (result >>> 32));
 		setRegSafe(rdLo, (int) result);
 	}
 
-	private void smulls(byte rdHi, byte rdLo, byte rm, byte rs) {
+	private void smulls(int rdHi, int rdLo, int rm, int rs) {
 		long result = ((long) cpu.getReg(rm))*cpu.getReg(rs);
 		cpu.cpsr.carry = false;
 		cpu.cpsr.negative = (result < 0);
@@ -729,13 +735,13 @@ public class ARMProcessor implements CPU.IProcessor {
 		setRegSafe(rdLo, (int) result);
 	}
 
-	private void smlal(byte rdHi, byte rdLo, byte rm, byte rs) {
+	private void smlal(int rdHi, int rdLo, int rm, int rs) {
 		long result = ((long) cpu.getReg(rm))*cpu.getReg(rs) + (((cpu.getReg(rdHi) & 0xFFFFFFFFL) << 32) | (cpu.getReg(rdLo) & 0xFFFFFFFFL));
 		setRegSafe(rdHi, (int) (result >>> 32));
 		setRegSafe(rdLo, (int) result);
 	}
 
-	private void smlals(byte rdHi, byte rdLo, byte rm, byte rs) {
+	private void smlals(int rdHi, int rdLo, int rm, int rs) {
 		long result = ((long) cpu.getReg(rm))*cpu.getReg(rs) + (((cpu.getReg(rdHi) & 0xFFFFFFFFL) << 32) | (cpu.getReg(rdLo) & 0xFFFFFFFFL));
 		cpu.cpsr.carry = false;
 		cpu.cpsr.negative = (result < 0);
@@ -744,296 +750,302 @@ public class ARMProcessor implements CPU.IProcessor {
 		setRegSafe(rdLo, (int) result);
 	}
 
-	private void singleDataSwap(byte midTop, byte midBot, byte bot) {
-		if ((midTop & 0x40) == 0x40) //Bit 22 SET - byte quantity
-			swpb(midTop, (byte) ((midBot & 0xF0) >>> 4), bot);
+	private void singleDataSwap(int instr) {
+		//rn = (instr >>> 16) & 0xF
+		//rd = (instr >>> 12) & 0xF
+		//rs = instr & 0xF
+		if ((instr & 0x400000) == 0x400000) //Bit 22 SET - byte quantity
+			swpb(instr >>> 16, instr >>> 12, instr);
 		else
-			swp(midTop, (byte) ((midBot & 0xF0) >>> 4), bot);	
+			swp(instr >>> 16, instr >>> 12, instr);	
 	}
 
-	private void swpb(byte rn, byte rd, byte rs) {
+	private void swpb(int rn, int rd, int rs) {
 		int address = cpu.getReg(rn);
 		int contents = cpu.read8(address);
 		cpu.write8(address, cpu.getReg(rs));
 		setRegSafe(rd, contents);
 	}
 
-	private void swp(byte rn, byte rd, byte rs) {
+	private void swp(int rn, int rd, int rs) {
 		int address = cpu.getReg(rn);
 		int contents = cpu.read32(address);
 		cpu.write32(address, cpu.getReg(rs));
 		setRegSafe(rd, contents);
 	}
 
-	private void halfwordDTImmPost(byte midTop, byte midBot, byte bot) {
-		if ((midTop & 0x20) == 0x20) { //Write back should be 0
+	private void halfwordDTImmPost(int instr) {
+		if ((instr & 0x200000) == 0x200000) { //Write back should be 0
 			cpu.undefinedInstr("Halfword data transfer POST write back bit must be CLEAR");
 			return; 
 		}
-		//rn = midTop
-		byte rd = (byte) ((midBot & 0xF0) >>> 4);
-		int imm8 = ((midBot & 0xF) << 4)| (bot & 0xF);
+		//rn = (instr >>> 16) & 0xF
+		//rd = (instr >>> 12) & 0xF
+		int imm8 = ((instr & 0xF00) >>> 4) | (instr & 0xF);
 
 		//Bit 23 is U bit - up or down 
 		//Post indexed data transfers always write back the modified base
-		//int address = ((midTop & 0x80) == 0x80) ? basePostIncr(midTop, offset) : basePostDecr(midTop, offset);
-		byte lsh = (byte) (((midTop & 0x10) >>> 2) | ((bot & 0x60) >>> 5)); // load/store, signed/unsigned, halfword/byte
+		byte lsh = (byte) (((instr & 0x100000) >>> 18) | ((instr & 0x60) >>> 5)); // load/store, signed/unsigned, halfword/byte
+		boolean incr = (instr & 0x800000) == 0x800000;
 		switch(lsh) {
 		case 0: break; //swp - won't happen
-		case 1: strh(rd, ((midTop & 0x80) == 0x80) ? basePostIncr(midTop, imm8) : basePostDecr(midTop, imm8)); break;
+		case 1: strh(instr >>> 12, (incr) ? basePostIncr(instr >>> 16, imm8) : basePostDecr(instr >>> 16, imm8)); break;
 		case 2: cpu.undefinedInstr("Halfword data transfer cannot store sign extended byte"); break; //invalid
 		case 3: cpu.undefinedInstr("Halfword data transfer cannot store sign extended halfword"); break; //invalid
 		case 4: break; //swp - won't happen
-		case 5: ldrh(rd, ((midTop & 0x80) == 0x80) ? basePostIncr(midTop, imm8) : basePostDecr(midTop, imm8)); break;
-		case 6: ldrsb(rd, ((midTop & 0x80) == 0x80) ? basePostIncr(midTop, imm8) : basePostDecr(midTop, imm8)); break;
-		case 7: ldrsh(rd, ((midTop & 0x80) == 0x80) ? basePostIncr(midTop, imm8) : basePostDecr(midTop, imm8)); break;
+		case 5: ldrh(instr >>> 12, (incr) ? basePostIncr(instr >>> 16, imm8) : basePostDecr(instr >>> 16, imm8)); break;
+		case 6: ldrsb(instr >>> 12, (incr) ? basePostIncr(instr >>> 16, imm8) : basePostDecr(instr >>> 16, imm8)); break;
+		case 7: ldrsh(instr >>> 12, (incr) ? basePostIncr(instr >>> 16, imm8) : basePostDecr(instr >>> 16, imm8)); break;
 		}
 	}
 
-	private void strh(byte reg, int address) {
+	private void strh(int reg, int address) {
 		cpu.write16(address, getRegDelayedPC(reg));
 	}
 
-	private void ldrh(byte reg, int address) {
+	private void ldrh(int reg, int address) {
 		setRegSafe(reg, cpu.read16(address));
 	}
 
-	private void ldrsh(byte reg, int address) {
+	private void ldrsh(int reg, int address) {
 		//Load sign extended half word
 		setRegSafe(reg, (cpu.read16(address) << 16) >> 16);
 	}
 
-	private void ldrsb(byte reg, int address) {
+	private void ldrsb(int reg, int address) {
 		//Load sign extended byte
 		setRegSafe(reg, (cpu.read8(address) << 24) >> 24);
 	}
 
-	private void halfwordDTImmPre(byte midTop, byte midBot, byte bot) {
-		//rn = midTop
-		byte rd = (byte) ((midBot & 0xF0) >>> 4);
-		int imm8 = ((midBot & 0xF) << 4)| (bot & 0xF);
+	private void halfwordDTImmPre(int instr) {
+		//rn = (instr >>> 16) & 0xF
+		//rd = (instr >>> 12) & 0xF
+		int imm8 = ((instr & 0xF00) >>> 4) | (instr & 0xF);
 
-		byte uw = (byte) (((midTop & 0x80) >>> 6) | ((midTop & 0x20) >>> 5));
-		byte lsh = (byte) (((midTop & 0x10) >>> 2) | ((bot & 0x60) >>> 5)); // load/store, signed/unsigned, halfword/byte
+		byte uw = (byte) (((instr >>> 22) & 0x2) | ((instr >>> 21) & 0x1));
+		byte lsh = (byte) (((instr & 0x100000) >>> 18) | ((instr & 0x60) >>> 5)); // load/store, signed/unsigned, halfword/byte
 		switch(lsh) {
 		case 0: break; //swp - won't happen
-		case 1: strh(rd, getPreAddress(uw, rd, imm8)); break;
+		case 1: strh(instr >>> 12, getPreAddress(uw, instr >>> 16, imm8)); break;
 		case 2: cpu.undefinedInstr("Halfword data transfer cannot store sign extended byte"); break; //invalid
 		case 3: cpu.undefinedInstr("Halfword data transfer cannot store sign extended halfword"); break; //invalid
 		case 4: break; //swp - won't happen
-		case 5: ldrh(rd, getPreAddress(uw, rd, imm8)); break;
-		case 6: ldrsb(rd, getPreAddress(uw, rd, imm8)); break;
-		case 7: ldrsh(rd, getPreAddress(uw, rd, imm8)); break;
+		case 5: ldrh(instr >>> 12, getPreAddress(uw, instr >>> 16, imm8)); break;
+		case 6: ldrsb(instr >>> 12, getPreAddress(uw, instr >>> 16, imm8)); break;
+		case 7: ldrsh(instr >>> 12, getPreAddress(uw, instr >>> 16, imm8)); break;
 		}
 	}
 
-	private int getPreAddress(byte uw, byte reg, int offset) {
+	private int getPreAddress(byte uw, int rn, int offset) {
 		//uw - up/down, write back/don't
 		switch(uw) {
-		case 0: return baseDecr(reg, offset);
-		case 1: return basePreDecr(reg, offset);
-		case 2: return baseIncr(reg, offset);
-		case 3: return basePreIncr(reg, offset);
+		case 0: return baseDecr(rn, offset);
+		case 1: return basePreDecr(rn, offset);
+		case 2: return baseIncr(rn, offset);
+		case 3: return basePreIncr(rn, offset);
 		}
 		//Should never occur
 		throw new RuntimeException();
 		//return 0;
 	}
 
-	private void halfwordDTRegPost(byte midTop, byte midBot, byte bot) {
-		if ((midTop & 0x20) == 0x20) { //Write back should be 0
+	private void halfwordDTRegPost(int instr) {
+		if ((instr & 0x200000) == 0x200000) { //Write back should be 0
 			cpu.undefinedInstr("Halfword data transfer POST write back bit must be CLEAR");
 			return; 
 		}
-		//rn = midTop
-		byte rd = (byte) ((midBot & 0xF0) >>> 4);
-		int offset = cpu.getReg(bot);
+		//rn = (instr >>> 16) & 0xF
+		//rd = (instr >>> 12) & 0xF
+		int offset = cpu.getReg(instr);
 
 		//Bit 23 is U bit - up or down 
 		//Post indexed data transfers always write back the modified base
-		//int address = ((midTop & 0x80) == 0x80) ? basePostIncr(midTop, offset) : basePostDecr(midTop, offset);
-		byte lsh = (byte) (((midTop & 0x10) >>> 2) | ((bot & 0x60) >>> 5)); // load/store, signed/unsigned, halfword/byte
+		byte lsh = (byte) (((instr & 0x100000) >>> 18) | ((instr & 0x60) >>> 5)); // load/store, signed/unsigned, halfword/byte
+		boolean incr = (instr & 0x800000) == 0x800000;
 		switch(lsh) {
 		case 0: break; //swp - won't happen
-		case 1: strh(rd, ((midTop & 0x80) == 0x80) ? basePostIncr(midTop, offset) : basePostDecr(midTop, offset)); break;
+		case 1: strh(instr >>> 12, (incr) ? basePostIncr(instr >>> 16, offset) : basePostDecr(instr >>> 16, offset)); break;
 		case 2: cpu.undefinedInstr("Halfword data transfer cannot store sign extended byte"); break; //invalid
 		case 3: cpu.undefinedInstr("Halfword data transfer cannot store sign extended halfword"); break; //invalid
 		case 4: break; //swp - won't happen
-		case 5: ldrh(rd, ((midTop & 0x80) == 0x80) ? basePostIncr(midTop, offset) : basePostDecr(midTop, offset)); break;
-		case 6: ldrsb(rd, ((midTop & 0x80) == 0x80) ? basePostIncr(midTop, offset) : basePostDecr(midTop, offset)); break;
-		case 7: ldrsh(rd, ((midTop & 0x80) == 0x80) ? basePostIncr(midTop, offset) : basePostDecr(midTop, offset)); break;
+		case 5: ldrh(instr >>> 12, (incr) ? basePostIncr(instr >>> 16, offset) : basePostDecr(instr >>> 16, offset)); break;
+		case 6: ldrsb(instr >>> 12, (incr) ? basePostIncr(instr >>> 16, offset) : basePostDecr(instr >>> 16, offset)); break;
+		case 7: ldrsh(instr >>> 12, (incr) ? basePostIncr(instr >>> 16, offset) : basePostDecr(instr >>> 16, offset)); break;
 		}
 	}
 
-	private void halfwordDTRegPre(byte midTop, byte midBot, byte bot) {
-		//rn = midTop
-		byte rd = (byte) ((midBot & 0xF0) >>> 4);
-		int offset = cpu.getReg(bot);
+	private void halfwordDTRegPre(int instr) {
+		//rn = (instr >>> 16) & 0xF
+		//rd = (instr >>> 12) & 0xF
+		int offset = cpu.getReg(instr);
 
-		byte uw = (byte) (((midTop & 0x80) >>> 6) | ((midTop & 0x20) >>> 5));
-		byte lsh = (byte) (((midTop & 0x10) >>> 2) | ((bot & 0x60) >>> 5)); // load/store, signed/unsigned, halfword/byte
+		byte uw = (byte) (((instr >>> 22) & 0x2) | ((instr >>> 21) & 0x1));
+		byte lsh = (byte) (((instr & 0x100000) >>> 18) | ((instr & 0x60) >>> 5)); // load/store, signed/unsigned, halfword/byte
 		switch(lsh) {
 		case 0: break; //swp - won't happen
-		case 1: strh(rd, getPreAddress(uw, rd, offset)); break;
+		case 1: strh(instr >>> 12, getPreAddress(uw, instr >>> 16, offset)); break;
 		case 2: cpu.undefinedInstr("Halfword data transfer cannot store sign extended byte"); break; //invalid
 		case 3: cpu.undefinedInstr("Halfword data transfer cannot store sign extended halfword"); break; //invalid
 		case 4: break; //swp - won't happen
-		case 5: ldrh(rd, getPreAddress(uw, rd, offset)); break;
-		case 6: ldrsb(rd, getPreAddress(uw, rd, offset)); break;
-		case 7: ldrsh(rd, getPreAddress(uw, rd, offset)); break;
+		case 5: ldrh(instr >>> 12, getPreAddress(uw, instr >>> 16, offset)); break;
+		case 6: ldrsb(instr >>> 12, getPreAddress(uw, instr >>> 16, offset)); break;
+		case 7: ldrsh(instr >>> 12, getPreAddress(uw, instr >>> 16, offset)); break;
 		}
 	}
 
-	private void singleDataTransferImmPre(byte midTop, byte midBot, byte bot) {
-		byte ubwl = (byte) ((midTop & 0xF0) >>> 4); // up/down, byte/word, write back/don't, load/store bits
-		//rn = midTop
-		byte rd = (byte) ((midBot & 0xF0) >>> 4);
-		int imm12 = ((midBot & 0xF) << 8) | (bot & 0xFF);
+	private void singleDataTransferImmPre(int instr) {
+		byte ubwl = (byte) ((instr >>> 20) & 0xF); // up/down, byte/word, write back/don't, load/store bits
+		//rn = (instr >>> 16) & 0xF
+		//rd = (instr >>> 12) & 0xF
+		int imm12 = instr & 0xFFF;
+
 		//8 - Up (else down)
 		//4 - Byte (else word)
 		//2 - Write back (else don't)
 		//1 - Load (else store)
 		switch(ubwl) { 
-		case 0x0: str(rd, baseDecr(midTop, imm12)); break; //Group 1 - word decr
-		case 0x1: ldr(rd, baseDecr(midTop, imm12)); break;
-		case 0x2: str(rd, basePreDecr(midTop, imm12)); break;
-		case 0x3: ldr(rd, basePreDecr(midTop, imm12)); break;
-		case 0x4: strb(rd, baseDecr(midTop, imm12)); break; //Group 2 - byte decr
-		case 0x5: ldrb(rd, baseDecr(midTop, imm12)); break;
-		case 0x6: strb(rd, basePreDecr(midTop, imm12)); break;
-		case 0x7: ldrb(rd, basePreDecr(midTop, imm12)); break;
-		case 0x8: str(rd, baseIncr(midTop, imm12)); break; //Group 3 - word incr
-		case 0x9: ldr(rd, baseIncr(midTop, imm12)); break;
-		case 0xA: str(rd, basePreIncr(midTop, imm12)); break;
-		case 0xB: ldr(rd, basePreIncr(midTop, imm12)); break;
-		case 0xC: strb(rd, baseIncr(midTop, imm12)); break; //Group 4 - byte incr
-		case 0xD: ldrb(rd, baseIncr(midTop, imm12)); break;
-		case 0xE: strb(rd, basePreIncr(midTop, imm12)); break;
-		case 0xF: ldrb(rd, basePreIncr(midTop, imm12)); break;
+		case 0x0: str(instr >>> 12, baseDecr(instr >>> 16, imm12)); break; //Group 1 - word decr
+		case 0x1: ldr(instr >>> 12, baseDecr(instr >>> 16, imm12)); break;
+		case 0x2: str(instr >>> 12, basePreDecr(instr >>> 16, imm12)); break;
+		case 0x3: ldr(instr >>> 12, basePreDecr(instr >>> 16, imm12)); break;
+		case 0x4: strb(instr >>> 12, baseDecr(instr >>> 16, imm12)); break; //Group 2 - byte decr
+		case 0x5: ldrb(instr >>> 12, baseDecr(instr >>> 16, imm12)); break;
+		case 0x6: strb(instr >>> 12, basePreDecr(instr >>> 16, imm12)); break;
+		case 0x7: ldrb(instr >>> 12, basePreDecr(instr >>> 16, imm12)); break;
+		case 0x8: str(instr >>> 12, baseIncr(instr >>> 16, imm12)); break; //Group 3 - word incr
+		case 0x9: ldr(instr >>> 12, baseIncr(instr >>> 16, imm12)); break;
+		case 0xA: str(instr >>> 12, basePreIncr(instr >>> 16, imm12)); break;
+		case 0xB: ldr(instr >>> 12, basePreIncr(instr >>> 16, imm12)); break;
+		case 0xC: strb(instr >>> 12, baseIncr(instr >>> 16, imm12)); break; //Group 4 - byte incr
+		case 0xD: ldrb(instr >>> 12, baseIncr(instr >>> 16, imm12)); break;
+		case 0xE: strb(instr >>> 12, basePreIncr(instr >>> 16, imm12)); break;
+		case 0xF: ldrb(instr >>> 12, basePreIncr(instr >>> 16, imm12)); break;
 		}
 	}
 
-	private int baseIncr(byte base, int offset) {
+	private int baseIncr(int base, int offset) {
 		return cpu.getReg(base) + offset;
 	}
 
-	private int baseDecr(byte base, int offset) {
+	private int baseDecr(int base, int offset) {
 		return cpu.getReg(base) - offset;
 	}
 
-	private int basePreIncr(byte base, int offset) {
+	private int basePreIncr(int base, int offset) {
 		int val = cpu.getReg(base) + offset;
 		setRegSafe(base, val);
 		return val;
 	}
 
-	private int basePreDecr(byte base, int offset) {
+	private int basePreDecr(int base, int offset) {
 		int val = cpu.getReg(base) - offset;
 		setRegSafe(base, val);
 		return val;
 	}
 
-	private void str(byte reg, int address) {
+	private void str(int reg, int address) {
 		cpu.write32(address, getRegDelayedPC(reg));
 	}
 
-	private void ldr(byte reg, int address) {
+	private void ldr(int reg, int address) {
 		setRegSafe(reg, cpu.read32(address));
 	}
 
-	private void strb(byte reg, int address) {
+	private void strb(int reg, int address) {
 		cpu.write8(address, getRegDelayedPC(reg));
 	}
 
-	private void ldrb(byte reg, int address) {
+	private void ldrb(int reg, int address) {
 		setRegSafe(reg, cpu.read8(address));
 	}
 
-	private void singleDataTransferImmPost(byte midTop, byte midBot, byte bot) {
-		byte ubtl = (byte) ((midTop & 0xF0) >>> 4); // up/down, byte/word, force non-privileged/don't, load/store bits
-		//rn = midTop
-		byte rd = (byte) ((midBot & 0xF0) >>> 4);
-		int imm12 = ((midBot & 0xF) << 8) | (bot & 0xFF);
+	private void singleDataTransferImmPost(int instr) {
+		byte ubtl = (byte) ((instr >>> 20) & 0xF); // up/down, byte/word, force non-privileged/don't, load/store bits
+		//rn = (instr >>> 16) & 0xF
+		//rd = (instr >>> 12) & 0xF
+		int imm12 = instr & 0xFFF;
+
 		//8 - Up (else down)
 		//4 - Byte (else word)
 		//2 - Force user mode (else don't)
 		//1 - Load (else store)
 		switch(ubtl) { 
-		case 0x0: str(rd, basePostDecr(midTop, imm12)); break; //Group 1 - word decr
-		case 0x1: ldr(rd, basePostDecr(midTop, imm12)); break;
-		case 0x2: str(rd, basePostDecrUser(midTop, imm12)); break;
-		case 0x3: ldr(rd, basePostDecrUser(midTop, imm12)); break;
-		case 0x4: strb(rd, basePostDecr(midTop, imm12)); break; //Group 2 - byte decr
-		case 0x5: ldrb(rd, basePostDecr(midTop, imm12)); break;
-		case 0x6: strb(rd, basePostDecrUser(midTop, imm12)); break;
-		case 0x7: ldrb(rd, basePostDecrUser(midTop, imm12)); break;
-		case 0x8: str(rd, basePostIncr(midTop, imm12)); break; //Group 3 - word incr
-		case 0x9: ldr(rd, basePostIncr(midTop, imm12)); break;
-		case 0xA: str(rd, basePostIncrUser(midTop, imm12)); break;
-		case 0xB: ldr(rd, basePostIncrUser(midTop, imm12)); break;
-		case 0xC: strb(rd, basePostIncr(midTop, imm12)); break; //Group 4 - byte incr
-		case 0xD: ldrb(rd, basePostIncr(midTop, imm12)); break;
-		case 0xE: strb(rd, basePostIncrUser(midTop, imm12)); break;
-		case 0xF: ldrb(rd, basePostIncrUser(midTop, imm12)); break;
+		case 0x0: str(instr >>> 12, basePostDecr(instr >>> 16, imm12)); break; //Group 1 - word decr
+		case 0x1: ldr(instr >>> 12, basePostDecr(instr >>> 16, imm12)); break;
+		case 0x2: str(instr >>> 12, basePostDecrUser(instr >>> 16, imm12)); break;
+		case 0x3: ldr(instr >>> 12, basePostDecrUser(instr >>> 16, imm12)); break;
+		case 0x4: strb(instr >>> 12, basePostDecr(instr >>> 16, imm12)); break; //Group 2 - byte decr
+		case 0x5: ldrb(instr >>> 12, basePostDecr(instr >>> 16, imm12)); break;
+		case 0x6: strb(instr >>> 12, basePostDecrUser(instr >>> 16, imm12)); break;
+		case 0x7: ldrb(instr >>> 12, basePostDecrUser(instr >>> 16, imm12)); break;
+		case 0x8: str(instr >>> 12, basePostIncr(instr >>> 16, imm12)); break; //Group 3 - word incr
+		case 0x9: ldr(instr >>> 12, basePostIncr(instr >>> 16, imm12)); break;
+		case 0xA: str(instr >>> 12, basePostIncrUser(instr >>> 16, imm12)); break;
+		case 0xB: ldr(instr >>> 12, basePostIncrUser(instr >>> 16, imm12)); break;
+		case 0xC: strb(instr >>> 12, basePostIncr(instr >>> 16, imm12)); break; //Group 4 - byte incr
+		case 0xD: ldrb(instr >>> 12, basePostIncr(instr >>> 16, imm12)); break;
+		case 0xE: strb(instr >>> 12, basePostIncrUser(instr >>> 16, imm12)); break;
+		case 0xF: ldrb(instr >>> 12, basePostIncrUser(instr >>> 16, imm12)); break;
 		}
 	}
 
-	private int basePostDecr(byte base, int offset) {
+	private int basePostDecr(int base, int offset) {
 		int val = cpu.getReg(base);
 		setRegSafe(base, val - offset);
 		return val;
 	}
 
-	private int basePostDecrUser(byte base, int offset) {
+	private int basePostDecrUser(int base, int offset) {
 		int val = cpu.getUserReg(base);
 		setUserRegSafe(base, val - offset);
 		return val;
 	}
 
-	private int basePostIncr(byte base, int offset) {
+	private int basePostIncr(int base, int offset) {
 		int val = cpu.getReg(base);
 		setRegSafe(base, val + offset);
 		return val;
 	}
 
-	private int basePostIncrUser(byte base, int offset) {
+	private int basePostIncrUser(int base, int offset) {
 		int val = cpu.getUserReg(base);
 		setUserRegSafe(base, val + offset);
 		return val;
 	}
 
-	private void singleDataTransferRegPre(byte midTop, byte midBot, byte bot) {
-		byte ubwl = (byte) ((midTop & 0xF0) >>> 4); // up/down, byte/word, write back/don't, load/store bits
-		//rn = midTop
-		byte rd = (byte) ((midBot & 0xF0) >>> 4);
-		byte shift = (byte) (((midBot & 0xF) << 4) | ((bot & 0xF0) >>> 4));
-		byte rm = (byte) (bot & 0xF);
-		int offset = getOp2DT(shift, rm);
+	private void singleDataTransferRegPre(int instr) {
+		byte ubwl = (byte) ((instr >>> 20) & 0xF); // up/down, byte/word, write back/don't, load/store bits
+		//rn = (instr >>> 16) & 0xF
+		//rd = (instr >>> 12) & 0xF
+		//shift = (instr >>> 4) & 0xFF
+		//rm = instr & 0xF
+
+		int offset = getOp2DT((instr >>> 4) & 0xFF, instr);
 		//8 - Up (else down)
 		//4 - Byte (else word)
 		//2 - Write back (else don't)
 		//1 - Load (else store)
 		switch(ubwl) { 
-		case 0x0: str(rd, baseDecr(midTop, offset)); break; //Group 1 - word decr
-		case 0x1: ldr(rd, baseDecr(midTop, offset)); break;
-		case 0x2: str(rd, basePreDecr(midTop, offset)); break;
-		case 0x3: ldr(rd, basePreDecr(midTop, offset)); break;
-		case 0x4: strb(rd, baseDecr(midTop, offset)); break; //Group 2 - byte decr
-		case 0x5: ldrb(rd, baseDecr(midTop, offset)); break;
-		case 0x6: strb(rd, basePreDecr(midTop, offset)); break;
-		case 0x7: ldrb(rd, basePreDecr(midTop, offset)); break;
-		case 0x8: str(rd, baseIncr(midTop, offset)); break; //Group 3 - word incr
-		case 0x9: ldr(rd, baseIncr(midTop, offset)); break;
-		case 0xA: str(rd, basePreIncr(midTop, offset)); break;
-		case 0xB: ldr(rd, basePreIncr(midTop, offset)); break;
-		case 0xC: strb(rd, baseIncr(midTop, offset)); break; //Group 4 - byte incr
-		case 0xD: ldrb(rd, baseIncr(midTop, offset)); break;
-		case 0xE: strb(rd, basePreIncr(midTop, offset)); break;
-		case 0xF: ldrb(rd, basePreIncr(midTop, offset)); break;
+		case 0x0: str(instr >>> 12, baseDecr(instr >>> 16, offset)); break; //Group 1 - word decr
+		case 0x1: ldr(instr >>> 12, baseDecr(instr >>> 16, offset)); break;
+		case 0x2: str(instr >>> 12, basePreDecr(instr >>> 16, offset)); break;
+		case 0x3: ldr(instr >>> 12, basePreDecr(instr >>> 16, offset)); break;
+		case 0x4: strb(instr >>> 12, baseDecr(instr >>> 16, offset)); break; //Group 2 - byte decr
+		case 0x5: ldrb(instr >>> 12, baseDecr(instr >>> 16, offset)); break;
+		case 0x6: strb(instr >>> 12, basePreDecr(instr >>> 16, offset)); break;
+		case 0x7: ldrb(instr >>> 12, basePreDecr(instr >>> 16, offset)); break;
+		case 0x8: str(instr >>> 12, baseIncr(instr >>> 16, offset)); break; //Group 3 - word incr
+		case 0x9: ldr(instr >>> 12, baseIncr(instr >>> 16, offset)); break;
+		case 0xA: str(instr >>> 12, basePreIncr(instr >>> 16, offset)); break;
+		case 0xB: ldr(instr >>> 12, basePreIncr(instr >>> 16, offset)); break;
+		case 0xC: strb(instr >>> 12, baseIncr(instr >>> 16, offset)); break; //Group 4 - byte incr
+		case 0xD: ldrb(instr >>> 12, baseIncr(instr >>> 16, offset)); break;
+		case 0xE: strb(instr >>> 12, basePreIncr(instr >>> 16, offset)); break;
+		case 0xF: ldrb(instr >>> 12, basePreIncr(instr >>> 16, offset)); break;
 		}
 	}
 
-	private int getOp2DT(byte shift, byte rm) {
+	private int getOp2DT(int shift, int rm) {
 		byte type = (byte)((shift & 0x6) >>> 1); //type is bit 6-5
 		if ((shift & 0x1) == 0) { //shift unsigned integer
 			int imm5 = ((shift & 0xF8) >>> 3); //bit 11-7
@@ -1051,34 +1063,35 @@ public class ARMProcessor implements CPU.IProcessor {
 		//return 0;
 	}
 
-	private void singleDataTransferRegPost(byte midTop, byte midBot, byte bot) {
-		byte ubtl = (byte) ((midTop & 0xF0) >>> 4); // up/down, byte/word, force non-privileged/don't, load/store bits
-		//rn = midTop
-		byte rd = (byte) ((midBot & 0xF0) >>> 4);
-		byte shift = (byte) (((midBot & 0xF) << 4) | ((bot & 0xF0) >>> 4));
-		byte rm = (byte) (bot & 0xF);
-		int offset = getOp2DT(shift, rm);
+	private void singleDataTransferRegPost(int instr) {
+		byte ubtl = (byte) ((instr >>> 20) & 0xF); // up/down, byte/word, force non-privileged/don't, load/store bits
+		//rn = (instr >>> 16) & 0xF
+		//rd = (instr >>> 12) & 0xF
+		//shift = (instr >>> 4) & 0xFF
+		//rm = instr & 0xF
+
+		int offset = getOp2DT((instr >>> 4) & 0xFF, instr);
 		//8 - Up (else down)
 		//4 - Byte (else word)
 		//2 - Force user mode (else don't)
 		//1 - Load (else store)
 		switch(ubtl) { 
-		case 0x0: str(rd, basePostDecr(midTop, offset)); break; //Group 1 - word decr
-		case 0x1: ldr(rd, basePostDecr(midTop, offset)); break;
-		case 0x2: str(rd, basePostDecrUser(midTop, offset)); break;
-		case 0x3: ldr(rd, basePostDecrUser(midTop, offset)); break;
-		case 0x4: strb(rd, basePostDecr(midTop, offset)); break; //Group 2 - byte decr
-		case 0x5: ldrb(rd, basePostDecr(midTop, offset)); break;
-		case 0x6: strb(rd, basePostDecrUser(midTop, offset)); break;
-		case 0x7: ldrb(rd, basePostDecrUser(midTop, offset)); break;
-		case 0x8: str(rd, basePostIncr(midTop, offset)); break; //Group 3 - word incr
-		case 0x9: ldr(rd, basePostIncr(midTop, offset)); break;
-		case 0xA: str(rd, basePostIncrUser(midTop, offset)); break;
-		case 0xB: ldr(rd, basePostIncrUser(midTop, offset)); break;
-		case 0xC: strb(rd, basePostIncr(midTop, offset)); break; //Group 4 - byte incr
-		case 0xD: ldrb(rd, basePostIncr(midTop, offset)); break;
-		case 0xE: strb(rd, basePostIncrUser(midTop, offset)); break;
-		case 0xF: ldrb(rd, basePostIncrUser(midTop, offset)); break;
+		case 0x0: str(instr >>> 12, basePostDecr(instr >>> 16, offset)); break; //Group 1 - word decr
+		case 0x1: ldr(instr >>> 12, basePostDecr(instr >>> 16, offset)); break;
+		case 0x2: str(instr >>> 12, basePostDecrUser(instr >>> 16, offset)); break;
+		case 0x3: ldr(instr >>> 12, basePostDecrUser(instr >>> 16, offset)); break;
+		case 0x4: strb(instr >>> 12, basePostDecr(instr >>> 16, offset)); break; //Group 2 - byte decr
+		case 0x5: ldrb(instr >>> 12, basePostDecr(instr >>> 16, offset)); break;
+		case 0x6: strb(instr >>> 12, basePostDecrUser(instr >>> 16, offset)); break;
+		case 0x7: ldrb(instr >>> 12, basePostDecrUser(instr >>> 16, offset)); break;
+		case 0x8: str(instr >>> 12, basePostIncr(instr >>> 16, offset)); break; //Group 3 - word incr
+		case 0x9: ldr(instr >>> 12, basePostIncr(instr >>> 16, offset)); break;
+		case 0xA: str(instr >>> 12, basePostIncrUser(instr >>> 16, offset)); break;
+		case 0xB: ldr(instr >>> 12, basePostIncrUser(instr >>> 16, offset)); break;
+		case 0xC: strb(instr >>> 12, basePostIncr(instr >>> 16, offset)); break; //Group 4 - byte incr
+		case 0xD: ldrb(instr >>> 12, basePostIncr(instr >>> 16, offset)); break;
+		case 0xE: strb(instr >>> 12, basePostIncrUser(instr >>> 16, offset)); break;
+		case 0xF: ldrb(instr >>> 12, basePostIncrUser(instr >>> 16, offset)); break;
 		}
 	}
 
@@ -1086,32 +1099,33 @@ public class ARMProcessor implements CPU.IProcessor {
 		cpu.undefinedTrap();
 	}
 
-	private void blockDataTransferPre(byte midTop, byte midBot, byte bot) {
-		//rn = midTop
-		int list = ((midBot & 0xFF) << 8) | (bot & 0xFF);
-		byte uswl = (byte) ((midTop & 0xF0) >>> 4); // up/down, loadPSR/force User mode/DON'T, write back base/don't, load/store 
+	private void blockDataTransferPre(int instr) {
+		byte uswl = (byte) ((instr >>> 20) & 0xF); // up/down, loadPSR/force User mode/DON'T, write back base/don't, load/store 
+		//rn = (instr >>> 16) & 0xF
+		int list = instr & 0xFFFF;
+
 		switch(uswl) { 
-		case 0x0: stmdb(midTop, list); break; //PRE DECR
-		case 0x1: ldmdb(midTop, list); break;
-		case 0x2: stmdbw(midTop, list); break; //write back
-		case 0x3: ldmdbw(midTop, list); break; //write back
-		case 0x4: stmdbs(midTop, list); break; //user mode
-		case 0x5: ldmdbs(midTop, list); break; //user mode/mode change
-		case 0x6: stmdbws(midTop, list); break; //write back and user mode, TODO Verify this is legal
-		case 0x7: ldmdbws(midTop, list); break; //write back and user mode, TODO Verify this is legal
-		case 0x8: stmib(midTop, list); break; //PRE INCR
-		case 0x9: ldmib(midTop, list); break;
-		case 0xA: stmibw(midTop, list); break; //write back
-		case 0xB: ldmibw(midTop, list); break; //write back
-		case 0xC: stmibs(midTop, list); break; //user mode
-		case 0xD: ldmibs(midTop, list); break; //user mode/mode change
-		case 0xE: stmibws(midTop, list); break; //write back and user mode, TODO Verify this is legal
-		case 0xF: ldmibws(midTop, list); break; //write back and user mode, TODO Verify this is legal
+		case 0x0: stmdb(instr >>> 16, list); break; //PRE DECR
+		case 0x1: ldmdb(instr >>> 16, list); break;
+		case 0x2: stmdbw(instr >>> 16, list); break; //write back
+		case 0x3: ldmdbw(instr >>> 16, list); break; //write back
+		case 0x4: stmdbs(instr >>> 16, list); break; //user mode
+		case 0x5: ldmdbs(instr >>> 16, list); break; //user mode/mode change
+		case 0x6: stmdbws(instr >>> 16, list); break; //write back and user mode, TODO Verify this is legal
+		case 0x7: ldmdbws(instr >>> 16, list); break; //write back and user mode, TODO Verify this is legal
+		case 0x8: stmib(instr >>> 16, list); break; //PRE INCR
+		case 0x9: ldmib(instr >>> 16, list); break;
+		case 0xA: stmibw(instr >>> 16, list); break; //write back
+		case 0xB: ldmibw(instr >>> 16, list); break; //write back
+		case 0xC: stmibs(instr >>> 16, list); break; //user mode
+		case 0xD: ldmibs(instr >>> 16, list); break; //user mode/mode change
+		case 0xE: stmibws(instr >>> 16, list); break; //write back and user mode, TODO Verify this is legal
+		case 0xF: ldmibws(instr >>> 16, list); break; //write back and user mode, TODO Verify this is legal
 		}
 	}
 
 	//PRE DECR
-	private void stmdb(byte base, int list) {
+	private void stmdb(int base, int list) {
 		int address = cpu.getReg(base);
 		for (byte reg = 15; reg >= 0; --reg) { 
 			if ((list & (1 << reg)) != 0)	{
@@ -1122,7 +1136,7 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	//PRE DECR - write back
-	private void stmdbw(byte base, int list) {
+	private void stmdbw(int base, int list) {
 		int address = cpu.getReg(base);
 		for (byte reg = 15; reg >= 0; --reg) { 
 			if ((list & (1 << reg)) != 0)	{
@@ -1134,7 +1148,7 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	//PRE DECR - user mode
-	private void stmdbs(byte base, int list) {
+	private void stmdbs(int base, int list) {
 		int address = cpu.getReg(base);
 		for (byte reg = 15; reg >= 0; --reg) { 
 			if ((list & (1 << reg)) != 0)	{
@@ -1145,7 +1159,7 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	//PRE DECR - write back and user mode
-	private void stmdbws(byte base, int list) {
+	private void stmdbws(int base, int list) {
 		int address = cpu.getReg(base);
 		for (byte reg = 15; reg >= 0; --reg) { 
 			if ((list & (1 << reg)) != 0)	{
@@ -1157,7 +1171,7 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	//PRE DECR
-	private void ldmdb(byte base, int list) {
+	private void ldmdb(int base, int list) {
 		int address = cpu.getReg(base);
 		for (byte reg = 15; reg >= 0; --reg) { 
 			if ((list & (1 << reg)) != 0)	{
@@ -1168,7 +1182,7 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	//PRE DECR - write back
-	private void ldmdbw(byte base, int list) {
+	private void ldmdbw(int base, int list) {
 		int address = cpu.getReg(base);
 		for (byte reg = 15; reg >= 0; --reg) { 
 			if ((list & (1 << reg)) != 0)	{
@@ -1180,11 +1194,11 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	//PRE DECR - user mode/SPSR transfer
-	private void ldmdbs(byte base, int list) {
+	private void ldmdbs(int base, int list) {
 		int address = cpu.getReg(base);
 		if ((list & 0x8000) == 0x8000) { //R15 is in list - special mode change
 			address -= 4;
-			setRegSafeCPSR((byte)15, cpu.read32(address));
+			setRegSafeCPSR(15, cpu.read32(address));
 			for (byte reg = 14; reg >= 0; --reg) { 
 				if ((list & (1 << reg)) != 0)	{
 					address -= 4;
@@ -1203,11 +1217,11 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	//PRE DECR - write back and user mode/SPSR transfer
-	private void ldmdbws(byte base, int list) {
+	private void ldmdbws(int base, int list) {
 		int address = cpu.getReg(base);
 		if ((list & 0x8000) == 0x8000) { //R15 is in list - special mode change
 			address -= 4;
-			setRegSafeCPSR((byte)15, cpu.read32(address));
+			setRegSafeCPSR(15, cpu.read32(address));
 			for (byte reg = 14; reg >= 0; --reg) { 
 				if ((list & (1 << reg)) != 0)	{
 					address -= 4;
@@ -1227,7 +1241,7 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	//PRE INCR
-	private void stmib(byte base, int list) {
+	private void stmib(int base, int list) {
 		int address = cpu.getReg(base);
 		for (byte reg = 0; reg <= 15; ++reg) {
 			if ((list & (1 << reg)) != 0)	{
@@ -1238,7 +1252,7 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	//PRE INCR - write back
-	private void stmibw(byte base, int list) {
+	private void stmibw(int base, int list) {
 		int address = cpu.getReg(base);
 		for (byte reg = 0; reg <= 15; ++reg) {
 			if ((list & (1 << reg)) != 0)	{
@@ -1250,7 +1264,7 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	//PRE INCR - user mode
-	private void stmibs(byte base, int list) {
+	private void stmibs(int base, int list) {
 		int address = cpu.getReg(base);
 		for (byte reg = 0; reg <= 15; ++reg) {
 			if ((list & (1 << reg)) != 0)	{
@@ -1261,7 +1275,7 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	//PRE INCR - write back and user mode
-	private void stmibws(byte base, int list) {
+	private void stmibws(int base, int list) {
 		int address = cpu.getReg(base);
 		for (byte reg = 0; reg <= 15; ++reg) {
 			if ((list & (1 << reg)) != 0)	{
@@ -1273,7 +1287,7 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	//PRE INCR
-	private void ldmib(byte base, int list) {
+	private void ldmib(int base, int list) {
 		int address = cpu.getReg(base);
 		for (byte reg = 0; reg <= 15; ++reg) {
 			if ((list & (1 << reg)) != 0)	{
@@ -1284,7 +1298,7 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	//PRE INCR - write back
-	private void ldmibw(byte base, int list) {
+	private void ldmibw(int base, int list) {
 		int address = cpu.getReg(base);
 		for (byte reg = 0; reg <= 15; ++reg) {
 			if ((list & (1 << reg)) != 0)	{
@@ -1296,7 +1310,7 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	//PRE INCR - user mode/SPSR transfer
-	private void ldmibs(byte base, int list) {
+	private void ldmibs(int base, int list) {
 		int address = cpu.getReg(base);
 		if ((list & 0x8000) == 0x8000) { //R15 is in list - special mode change
 			for (byte reg = 0; reg <= 14; ++reg) { 
@@ -1306,7 +1320,7 @@ public class ARMProcessor implements CPU.IProcessor {
 				}
 			}
 			address += 4;
-			setRegSafeCPSR((byte)15, cpu.read32(address));
+			setRegSafeCPSR(15, cpu.read32(address));
 		}
 		else {
 			for (byte reg = 0; reg <= 14; ++reg) { 
@@ -1319,7 +1333,7 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	//PRE INCR - write back and user mode/SPSR transfer
-	private void ldmibws(byte base, int list) {
+	private void ldmibws(int base, int list) {
 		int address = cpu.getReg(base);
 		if ((list & 0x8000) == 0x8000) { //R15 is in list - special mode change
 			for (byte reg = 0; reg <= 14; ++reg) { 
@@ -1329,7 +1343,7 @@ public class ARMProcessor implements CPU.IProcessor {
 				}
 			}
 			address += 4;
-			setRegSafeCPSR((byte)15, cpu.read32(address));
+			setRegSafeCPSR(15, cpu.read32(address));
 		}
 		else {
 			for (byte reg = 0; reg <= 14; ++reg) { 
@@ -1342,32 +1356,33 @@ public class ARMProcessor implements CPU.IProcessor {
 		setRegSafe(base, address);
 	}
 
-	private void blockDataTransferPost(byte midTop, byte midBot, byte bot) {
-		//rn = midTop
-		int list = ((midBot & 0xFF) << 8) | (bot & 0xFF);
-		byte uswl = (byte) ((midTop & 0xF0) >>> 4); // up/down, loadPSR/force User mode/DON'T, write back base/don't, load/store 
+	private void blockDataTransferPost(int instr) {
+		byte uswl = (byte) ((instr >>> 20) & 0xF); // up/down, loadPSR/force User mode/DON'T, write back base/don't, load/store 
+		//rn = (instr >>> 16) & 0xF
+		int list = instr & 0xFFFF; 
+		
 		switch(uswl) {
-		case 0x0: stmda(midTop, list); break; //POST DECR
-		case 0x1: ldmda(midTop, list); break;
-		case 0x2: stmdaw(midTop, list); break; //write back
-		case 0x3: ldmdaw(midTop, list); break; //write back
-		case 0x4: stmdas(midTop, list); break; //user mode
-		case 0x5: ldmdas(midTop, list); break; //user mode/mode change
-		case 0x6: stmdaws(midTop, list); break; //write back and user mode, TODO Verify this is legal
-		case 0x7: ldmdaws(midTop, list); break; //write back and user mode, TODO Verify this is legal
-		case 0x8: stmia(midTop, list); break; //POST INCR
-		case 0x9: ldmia(midTop, list); break;
-		case 0xA: stmiaw(midTop, list); break; //write back
-		case 0xB: ldmiaw(midTop, list); break; //write back
-		case 0xC: stmias(midTop, list); break; //user mode
-		case 0xD: ldmias(midTop, list); break; //user mode/mode change
-		case 0xE: stmiaws(midTop, list); break; //write back and user mode, TODO Verify this is legal
-		case 0xF: ldmiaws(midTop, list); break; //write back and user mode, TODO Verify this is legal
+		case 0x0: stmda(instr >>> 16, list); break; //POST DECR
+		case 0x1: ldmda(instr >>> 16, list); break;
+		case 0x2: stmdaw(instr >>> 16, list); break; //write back
+		case 0x3: ldmdaw(instr >>> 16, list); break; //write back
+		case 0x4: stmdas(instr >>> 16, list); break; //user mode
+		case 0x5: ldmdas(instr >>> 16, list); break; //user mode/mode change
+		case 0x6: stmdaws(instr >>> 16, list); break; //write back and user mode, TODO Verify this is legal
+		case 0x7: ldmdaws(instr >>> 16, list); break; //write back and user mode, TODO Verify this is legal
+		case 0x8: stmia(instr >>> 16, list); break; //POST INCR
+		case 0x9: ldmia(instr >>> 16, list); break;
+		case 0xA: stmiaw(instr >>> 16, list); break; //write back
+		case 0xB: ldmiaw(instr >>> 16, list); break; //write back
+		case 0xC: stmias(instr >>> 16, list); break; //user mode
+		case 0xD: ldmias(instr >>> 16, list); break; //user mode/mode change
+		case 0xE: stmiaws(instr >>> 16, list); break; //write back and user mode, TODO Verify this is legal
+		case 0xF: ldmiaws(instr >>> 16, list); break; //write back and user mode, TODO Verify this is legal
 		}
 	}
 
 	//POST DECR
-	private void stmda(byte base, int list) {
+	private void stmda(int base, int list) {
 		int address = cpu.getReg(base);
 		for (byte reg = 15; reg >= 0; --reg) { 
 			if ((list & (1 << reg)) != 0)	{
@@ -1378,7 +1393,7 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	//POST DECR - write back
-	private void stmdaw(byte base, int list) {
+	private void stmdaw(int base, int list) {
 		int address = cpu.getReg(base);
 		for (byte reg = 15; reg >= 0; --reg) { 
 			if ((list & (1 << reg)) != 0)	{
@@ -1390,7 +1405,7 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	//POST DECR - user mode
-	private void stmdas(byte base, int list) {
+	private void stmdas(int base, int list) {
 		int address = cpu.getReg(base);
 		for (byte reg = 15; reg >= 0; --reg) { 
 			if ((list & (1 << reg)) != 0)	{
@@ -1401,7 +1416,7 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	//POST DECR - write back and user mode
-	private void stmdaws(byte base, int list) {
+	private void stmdaws(int base, int list) {
 		int address = cpu.getReg(base);
 		for (byte reg = 15; reg >= 0; --reg) { 
 			if ((list & (1 << reg)) != 0)	{
@@ -1413,7 +1428,7 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	//POST DECR
-	private void ldmda(byte base, int list) {
+	private void ldmda(int base, int list) {
 		int address = cpu.getReg(base);
 		for (byte reg = 15; reg >= 0; --reg) { 
 			if ((list & (1 << reg)) != 0)	{
@@ -1424,7 +1439,7 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	//POST DECR - write back
-	private void ldmdaw(byte base, int list) {
+	private void ldmdaw(int base, int list) {
 		int address = cpu.getReg(base);
 		for (byte reg = 15; reg >= 0; --reg) { 
 			if ((list & (1 << reg)) != 0)	{
@@ -1436,10 +1451,10 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	//POST DECR - user mode/SPSR transfer
-	private void ldmdas(byte base, int list) {
+	private void ldmdas(int base, int list) {
 		int address = cpu.getReg(base);
 		if ((list & 0x8000) == 0x8000) { //R15 is in list - special mode change
-			setRegSafeCPSR((byte)15, cpu.read32(address));
+			setRegSafeCPSR(15, cpu.read32(address));
 			address -= 4;
 			for (byte reg = 14; reg >= 0; --reg) { 
 				if ((list & (1 << reg)) != 0)	{
@@ -1459,10 +1474,10 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	//POST DECR - write back and user mode/SPSR transfer
-	private void ldmdaws(byte base, int list) {
+	private void ldmdaws(int base, int list) {
 		int address = cpu.getReg(base);
 		if ((list & 0x8000) == 0x8000) { //R15 is in list - special mode change
-			setRegSafeCPSR((byte)15, cpu.read32(address));
+			setRegSafeCPSR(15, cpu.read32(address));
 			address -= 4;
 			for (byte reg = 14; reg >= 0; --reg) { 
 				if ((list & (1 << reg)) != 0)	{
@@ -1483,7 +1498,7 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	//POST INCR
-	private void stmia(byte base, int list) {
+	private void stmia(int base, int list) {
 		int address = cpu.getReg(base);
 		for (byte reg = 0; reg <= 15; ++reg) {
 			if ((list & (1 << reg)) != 0)	{
@@ -1494,7 +1509,7 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	//POST INCR - write back
-	private void stmiaw(byte base, int list) {
+	private void stmiaw(int base, int list) {
 		int address = cpu.getReg(base);
 		for (byte reg = 0; reg <= 15; ++reg) {
 			if ((list & (1 << reg)) != 0)	{
@@ -1506,7 +1521,7 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	//POST INCR - user mode
-	private void stmias(byte base, int list) {
+	private void stmias(int base, int list) {
 		int address = cpu.getReg(base);
 		for (byte reg = 0; reg <= 15; ++reg) {
 			if ((list & (1 << reg)) != 0)	{
@@ -1517,7 +1532,7 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	//POST INCR - write back and user mode
-	private void stmiaws(byte base, int list) {
+	private void stmiaws(int base, int list) {
 		int address = cpu.getReg(base);
 		for (byte reg = 0; reg <= 15; ++reg) {
 			if ((list & (1 << reg)) != 0)	{
@@ -1529,7 +1544,7 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	//POST INCR
-	private void ldmia(byte base, int list) {
+	private void ldmia(int base, int list) {
 		int address = cpu.getReg(base);
 		for (byte reg = 0; reg <= 15; ++reg) {
 			if ((list & (1 << reg)) != 0)	{
@@ -1540,7 +1555,7 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	//POST INCR - write back
-	private void ldmiaw(byte base, int list) {
+	private void ldmiaw(int base, int list) {
 		int address = cpu.getReg(base);
 		for (byte reg = 0; reg <= 15; ++reg) {
 			if ((list & (1 << reg)) != 0)	{
@@ -1552,7 +1567,7 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	//POST INCR - user mode/SPSR transfer
-	private void ldmias(byte base, int list) {
+	private void ldmias(int base, int list) {
 		int address = cpu.getReg(base);
 		if ((list & 0x8000) == 0x8000) { //R15 is in list - special mode change
 			for (byte reg = 0; reg <= 14; ++reg) { 
@@ -1561,7 +1576,7 @@ public class ARMProcessor implements CPU.IProcessor {
 					address += 4;
 				}
 			}
-			setRegSafeCPSR((byte)15, cpu.read32(address));
+			setRegSafeCPSR(15, cpu.read32(address));
 			address += 4;
 		}
 		else {
@@ -1575,7 +1590,7 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	//POST INCR - write back and user mode/SPSR transfer
-	private void ldmiaws(byte base, int list) {
+	private void ldmiaws(int base, int list) {
 		int address = cpu.getReg(base);
 		if ((list & 0x8000) == 0x8000) { //R15 is in list - special mode change
 			for (byte reg = 0; reg <= 14; ++reg) { 
@@ -1584,7 +1599,7 @@ public class ARMProcessor implements CPU.IProcessor {
 					address += 4;
 				}
 			}
-			setRegSafeCPSR((byte)15, cpu.read32(address));
+			setRegSafeCPSR(15, cpu.read32(address));
 			address += 4;
 		}
 		else {
@@ -1598,37 +1613,37 @@ public class ARMProcessor implements CPU.IProcessor {
 		setRegSafe(base, address);
 	}
 
-	private void branchLink(byte midTop, byte midBot, byte bot) {
+	private void branchLink(int instr) {
 		cpu.setLR(cpu.getPC() - 4);
 		//Sign extended offset
-		int offset = ((((midTop & 0xFF) << 16) | ((midBot & 0xFF) << 8) | (bot & 0xFF)) << 8) >> 6;
+		int offset = (instr << 8) >> 6;
 		cpu.branch(cpu.getPC() + offset);
 	}
 
-	private void branch(byte midTop, byte midBot, byte bot) {
+	private void branch(int instr) {
 		//Sign extended offset
-		int offset = ((((midTop & 0xFF) << 16) | ((midBot & 0xFF) << 8) | (bot & 0xFF)) << 8) >> 6;
+		int offset = (instr << 8) >> 6;
 		cpu.branch(cpu.getPC() + offset);
 	}
 
-	private void coprocDataTransferPre(byte midTop, byte midBot, byte bot) {
+	private void coprocDataTransferPre(int instr) {
 		cpu.undefinedInstr("Coprocessor data transfer (pre) is not available");
 	}
 
-	private void coprocDataTransferPost(byte midTop, byte midBot, byte bot) {
+	private void coprocDataTransferPost(int instr) {
 		cpu.undefinedInstr("Coprocessor data transfer (post) is not available");
 	}
 
-	private void coprocDataOperation(byte midTop, byte midBot, byte bot) {
+	private void coprocDataOperation(int instr) {
 		cpu.undefinedInstr("Coprocessor data operation is not available");
 	}
 
-	private void coprocRegisterTransfer(byte midTop, byte midBot, byte bot) {
+	private void coprocRegisterTransfer(int instr) {
 		cpu.undefinedInstr("Coprocessor register transfer is not available");
 	}
 
-	private void softwareInterrupt(byte midTop, byte midBot, byte bot) {
-		cpu.softwareInterrupt(midTop, midBot, bot);
+	private void softwareInterrupt(int instr) {
+		cpu.softwareInterrupt(instr & 0xFFFFFF);
 	}
 
 }
