@@ -40,6 +40,7 @@ public class THUMBProcessor implements CPU.IProcessor {
 	public void execute(int pc) {
 		//TODO Get instruction
 		int instr = 0; //Actually a short (only use lower 16 bits)
+		cpu.execute = instr;
 
 		byte bit15_to_11 = (byte)(instr >>> 11);
 
@@ -471,46 +472,39 @@ public class THUMBProcessor implements CPU.IProcessor {
 	private void hiRegOpsBranchX(int instr) {
 		byte op = (byte) ((instr >>> 8) & 0x3); //Bit 9,8
 		//rs = instr >>> 3, rd = instr (& 0x7)
-		boolean high1 = (instr & 0x80) == 0x80; //Bit 7
-		boolean high2 = (instr & 0x40) == 0x40; //Bit 6
+		byte h1h2 = (byte) ((instr >>> 6) & 0x3);
 		switch(op) { 
 		case 0x0:
-			if (high1 && high2)
-				addHH(instr, instr >>> 3);
-			else if (high1)
-				addHL(instr, instr >>> 3);
-			else if (high2)
-				addLH(instr, instr >>> 3);
-			else
-				cpu.undefinedInstr("Add low-low is undefined");
+			switch(h1h2) {
+			case 0: cpu.undefinedInstr("Add low-low is undefined"); break;
+			case 1: addLH(instr, instr >>> 3); break;
+			case 2: addHL(instr, instr >>> 3); break;
+			case 3: addHH(instr, instr >>> 3); break;
+			}
 			break;
 		case 0x1:
-			if (high1 && high2)
-				cmpHH(instr, instr >>> 3);
-			else if (high1)
-				cmpHL(instr, instr >>> 3);
-			else if (high2)
-				cmpLH(instr, instr >>> 3);
-			else
-				cpu.undefinedInstr("Cmp low-low is undefined");
+			switch(h1h2) {
+			case 0: cpu.undefinedInstr("Cmp low-low is undefined"); break;
+			case 1: cmpLH(instr, instr >>> 3); break;
+			case 2: cmpHL(instr, instr >>> 3); break;
+			case 3: cmpHH(instr, instr >>> 3); break;
+			}
 			break;
 		case 0x2:
-			if (high1 && high2)
-				movHH(instr, instr >>> 3);
-			else if (high1)
-				movHL(instr, instr >>> 3);
-			else if (high2)
-				movLH(instr, instr >>> 3);
-			else
-				cpu.undefinedInstr("Mov low-low is undefined");
+			switch(h1h2) {
+			case 0: cpu.undefinedInstr("Mov low-low is undefined"); break;
+			case 1: movLH(instr, instr >>> 3); break;
+			case 2: movHL(instr, instr >>> 3); break;
+			case 3: movHH(instr, instr >>> 3); break;
+			}
 			break;
 		case 0x3:
-			if (high1)
-				cpu.undefinedInstr("BranchX high-low, high-high is undefined");
-			else if (high2)
-				branchXLow(instr >>> 3);
-			else
-				branchXHigh(instr >>> 3);
+			switch(h1h2) {
+			case 0: branchXLow(instr >>> 3); break;
+			case 1: branchXHigh(instr >>> 3); break;
+			case 2: cpu.undefinedInstr("BranchX high-low is undefined"); break;
+			case 3: cpu.undefinedInstr("BranchX high-high is undefined"); break;
+			}
 			break;
 		}
 	}
@@ -590,7 +584,7 @@ public class THUMBProcessor implements CPU.IProcessor {
 		//Store the low byte in the reg (instr & 0x7) at [address]
 		cpu.write8(address, cpu.getLowReg(instr));
 	}
-	
+
 	private void strh(int instr) {
 		//Halfword store, get address from reg (bit 5-3) and reg (bit 8-6)
 		int address = cpu.getLowReg(instr >>> 3) + cpu.getLowReg(instr >>> 6);

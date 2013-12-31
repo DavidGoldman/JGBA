@@ -71,6 +71,7 @@ public class ARMProcessor implements CPU.IProcessor {
 	public void execute(int pc) {
 		//TODO Get instruction
 		int instr = 0;
+		cpu.execute = instr;
 
 		/*Top four bits of top are the condition codes
 		  Byte indices start at 0, domain [0, 31]*/
@@ -178,7 +179,9 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	private int getOp2(int shift, int rm) {
+		cpu.wait.internalCycle(); //Clock internal cycle
 		byte type = (byte)((shift & 0x6) >>> 1); //type is bit 6-5
+		
 		if ((shift & 0x1) == 0) { //shift unsigned integer
 			int imm5 = shift >>> 3; //bit 11-7
 			switch(type) {
@@ -251,7 +254,9 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	private int getOp2S(int shift, int rm) {
+		cpu.wait.internalCycle(); //Clock internal cycle
 		byte type = (byte)((shift & 0x6) >>> 1); //type is bit 6-5
+		
 		if ((shift & 0x1) == 0) { //shift unsigned integer
 			int imm5 = shift >>> 3;
 			switch(type) {
@@ -763,6 +768,7 @@ public class ARMProcessor implements CPU.IProcessor {
 	private void swpb(int rn, int rd, int rs) {
 		int address = cpu.getReg(rn);
 		int contents = cpu.read8(address);
+		cpu.wait.internalCycle(); //Clock internal cycle
 		cpu.write8(address, cpu.getReg(rs));
 		setRegSafe(rd, contents);
 	}
@@ -770,6 +776,7 @@ public class ARMProcessor implements CPU.IProcessor {
 	private void swp(int rn, int rd, int rs) {
 		int address = cpu.getReg(rn);
 		int contents = cpu.read32(address);
+		cpu.wait.internalCycle(); //Clock internal cycle
 		cpu.write32(address, cpu.getReg(rs));
 		setRegSafe(rd, contents);
 	}

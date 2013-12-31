@@ -8,6 +8,10 @@ public class ByteUtils {
 		return String.format("%02X", b & 0xFF);
 	}
 	
+	public static String hex(short s) {
+		return String.format("%04X", s & 0xFFFF);
+	}
+	
 	public static String hex(int i) {
 		return String.format("%08X", i);
 	}

@@ -49,4 +49,11 @@ public class Waitstate {
 		postBoot = i;
 	}
 	
+	public void internalCycles(int cycles) {
+		//TODO clock internal cycles, prefetch/prefetch disable bug
+	}
+	
+	public void internalCycle() {
+		//TODO clock internal cycle, check prefetch disable bug
+	}
 }

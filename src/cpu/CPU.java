@@ -1,6 +1,7 @@
 package cpu;
 
 import utils.ByteUtils;
+import cores.Waitstate;
 
 public class CPU {
 
@@ -46,16 +47,24 @@ public class CPU {
 
 	private final ARMProcessor arm;
 	private final THUMBProcessor thumb;
-
 	protected final CPSR cpsr; //CPSR (CONDITION CODE FLAGS AND CURRENT MODE BITS)
+	protected final Waitstate wait;
 	
-
+	/**
+	 * The actual PC.
+	 */
 	private int pc;
+	
+	/**
+	 * The instruction (ARM or THUMB) that is/was executing. 
+	 */
+	protected int execute;
 
 	public CPU() {
 		arm = new ARMProcessor(this);
 		thumb = new THUMBProcessor(this);
 		cpsr = new CPSR();
+		wait = new Waitstate();
 	}
 
 	/**
@@ -218,11 +227,10 @@ public class CPU {
 	}
 
 	protected void undefinedInstr(String info) {
-		System.err.println("WARNING: Undefined instruction @[" + ByteUtils.hex(pc) + "]: " + info);
-	}
-
-	protected byte accessROM(int pc) {
-		return 0;
+		if (cpsr.thumb) 
+			System.err.println("WARNING: Undefined THUMB instruction " + ByteUtils.hex((short)execute) + " @[" + ByteUtils.hex(pc) + "]: " + info);
+		else
+			System.err.println("WARNING: Undefined ARM instruction " + ByteUtils.hex(execute) + " @[" + ByteUtils.hex(pc) + "]: " + info);
 	}
 
 	public void regDump() {
