@@ -408,7 +408,7 @@ public class ARMProcessor implements CPU.IProcessor {
 
 	private void psrTransfer(int instr) {
 		boolean spsr = ((instr & 0x400000) == 0x400000); //Bit 22
-		if ((instr & 0x3F0FFF) == 0x0F000) //Bit 21-16 is 001111 (0x0F), bit 11-0 is 0
+		if ((instr & 0x3F0FFF) == 0x0F0000) //Bit 21-16 is 001111 (0x0F), bit 11-0 is 0
 			mrs(instr >>> 12, spsr); //Rd is bit 15-12
 		else if ((instr & 0x3FFFF0) == 0x29F000) //Bit 21-16 is 101001 (0x29), bit 15-12 is 1, bit 11-4 is 0
 			msr(instr, spsr); //Rm is bit 3-0
@@ -784,9 +784,9 @@ public class ARMProcessor implements CPU.IProcessor {
 		int imm8 = ((instr & 0xF00) >>> 4) | (instr & 0xF);
 
 		//Bit 23 is U bit - up or down 
+		boolean incr = (instr & 0x800000) == 0x800000;
 		//Post indexed data transfers always write back the modified base
 		byte lsh = (byte) (((instr & 0x100000) >>> 18) | ((instr & 0x60) >>> 5)); // load/store, signed/unsigned, halfword/byte
-		boolean incr = (instr & 0x800000) == 0x800000;
 		switch(lsh) {
 		case 0: break; //swp - won't happen
 		case 1: strh(instr >>> 12, (incr) ? basePostIncr(instr >>> 16, imm8) : basePostDecr(instr >>> 16, imm8)); break;
@@ -859,9 +859,9 @@ public class ARMProcessor implements CPU.IProcessor {
 		int offset = cpu.getReg(instr);
 
 		//Bit 23 is U bit - up or down 
+		boolean incr = (instr & 0x800000) == 0x800000;
 		//Post indexed data transfers always write back the modified base
 		byte lsh = (byte) (((instr & 0x100000) >>> 18) | ((instr & 0x60) >>> 5)); // load/store, signed/unsigned, halfword/byte
-		boolean incr = (instr & 0x800000) == 0x800000;
 		switch(lsh) {
 		case 0: break; //swp - won't happen
 		case 1: strh(instr >>> 12, (incr) ? basePostIncr(instr >>> 16, offset) : basePostDecr(instr >>> 16, offset)); break;
@@ -1048,7 +1048,7 @@ public class ARMProcessor implements CPU.IProcessor {
 	private int getOp2DT(int shift, int rm) {
 		byte type = (byte)((shift & 0x6) >>> 1); //type is bit 6-5
 		if ((shift & 0x1) == 0) { //shift unsigned integer
-			int imm5 = ((shift & 0xF8) >>> 3); //bit 11-7
+			int imm5 = shift >>> 3; //bit 11-7
 			switch(type) {
 			case 0: return lsli(rm, imm5);
 			case 1: return lsri(rm, imm5);
