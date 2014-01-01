@@ -108,4 +108,26 @@ public class ARMDataOpCode {
 	 * NOT operand2 (operand1 is ignored)
 	 */
 	public static final byte MVN = 15;
+	
+	public static String toString(byte op) {
+		switch(op) {
+		case AND: return "AND";
+		case EOR: return "EOR";
+		case SUB: return "SUB";
+		case RSB: return "RSB";
+		case ADD: return "ADD";
+		case ADC: return "ADC";
+		case SBC: return "SBC";
+		case RSC: return "RSC";
+		case TST: return "TST";
+		case TEQ: return "TEQ";
+		case CMP: return "CMP";
+		case CMN: return "CMN";
+		case ORR: return "ORR";
+		case MOV: return "MOV";
+		case BIC: return "BIC";
+		case MVN: return "MVN";
+		default: return "INVALID";
+		}
+	}
 }

@@ -228,14 +228,14 @@ public class CPU {
 
 	protected void undefinedInstr(String info) {
 		if (cpsr.thumb) 
-			System.err.println("WARNING: Undefined THUMB instruction " + ByteUtils.hex((short)execute) + " @[" + ByteUtils.hex(pc) + "]: " + info);
+			System.err.println("WARNING: Undefined THUMB instruction " + ByteUtils.hexs(execute) + " @[" + ByteUtils.hexi(pc) + "]: " + info);
 		else
-			System.err.println("WARNING: Undefined ARM instruction " + ByteUtils.hex(execute) + " @[" + ByteUtils.hex(pc) + "]: " + info);
+			System.err.println("WARNING: Undefined ARM instruction " + ByteUtils.hexi(execute) + " @[" + ByteUtils.hexi(pc) + "]: " + info);
 	}
 
 	public void regDump() {
 		System.out.println("---------------------------------------------REG DUMP---------------------------------------------");
-		System.out.println("Actual PC: " + ByteUtils.hex(pc));
+		System.out.println("Actual PC: " + ByteUtils.hexi(pc));
 		System.out.println("PC: " + dr(15,0) + "\tLR: " + dr(14,0) + "\tSP: " + dr(13,0));
 		System.out.println("CPSR: " +  cpsr.toString());
 		System.out.println("SPSR_fiq: " + CPSR.toString(spsr[0]));
@@ -254,6 +254,6 @@ public class CPU {
 
 	//Dump reg (hex value)
 	private String dr(int r, int i) {
-		return ByteUtils.hex(regs[r][i]);
+		return ByteUtils.hexi(regs[r][i]);
 	}
 }

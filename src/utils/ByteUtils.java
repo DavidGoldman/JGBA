@@ -1,18 +1,12 @@
 package utils;
 
-import cpu.Condition;
-
 public class ByteUtils {
 	
-	public static String hex(byte b) {
-		return String.format("%02X", b & 0xFF);
+	public static String hexs(int _short) {
+		return String.format("%04X", _short & 0xFFFF);
 	}
 	
-	public static String hex(short s) {
-		return String.format("%04X", s & 0xFFFF);
-	}
-	
-	public static String hex(int i) {
+	public static String hexi(int i) {
 		return String.format("%08X", i);
 	}
 	
@@ -26,11 +20,6 @@ public class ByteUtils {
 			if (b[i] != 0)
 				sb.append(ByteUtils.ascii(b[i]));
 		return sb.toString();
-	}
-	
-	public static String opString(byte most, byte b, byte c, byte least) {
-		return Condition.toString((byte)((most >>> 4) & 0xF)) + " " + 
-			hex((byte) (most & 0xf)) + " " + hex(b) + " " + hex(c) + " " + hex(least);
 	}
 	
 }

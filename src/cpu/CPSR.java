@@ -31,7 +31,7 @@ public class CPSR {
 	}
 	
 	public static String toString(int spsr) {
-		String s = ByteUtils.hex(spsr) + ' ';
+		String s = ByteUtils.hexi(spsr) + ' ';
 		if ((spsr & 0x80000000) == 0x80000000)
 			s += 'N';
 		if ((spsr & 0x40000000) == 0x40000000)
@@ -171,7 +171,7 @@ public class CPSR {
 	}
 	
 	public String toString() {
-		String s = ByteUtils.hex(save()) + ' ';
+		String s = ByteUtils.hexi(save()) + ' ';
 		if (negative)
 			s += 'N';
 		if (zero)

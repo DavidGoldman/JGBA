@@ -7,7 +7,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 
-import utils.ByteUtils;
 import utils.LoadException;
 
 /**
@@ -77,7 +76,6 @@ public class CartridgeROM {
 		System.out.println("TITLE: " + title + "\nGAMECODE: " + code + "\nDEV: " + dev);
 		System.out.println("HARDWARE: " + hardware + "\nTYPE: " + type + "\nVER: " + ver);
 		System.out.println("CHECKSUM: " + checksum + "\nDEBUG: " + debug);
-		System.out.println("ENTRY: " + ByteUtils.opString(rom[3], rom[2], rom[1], rom[0]));
 	}
 	
 	private boolean nintendo() {

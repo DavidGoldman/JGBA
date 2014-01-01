@@ -1,7 +1,7 @@
 Java Game Boy Advance
 =================
 
-This (when complete) will be a Java GBA Emulator utilizing Open GL. While I will strive for accuracy, such adjustments may be made down the road.
+This (when complete) will be a Java GBA Emulator utilizing Open GL and (hopefully) ObjectWeb ASM to provide dynamic recompilation.
 
 
 Todo list (in a somewhat particular order):
