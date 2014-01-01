@@ -47,6 +47,7 @@ public class CPU {
 
 	private final ARMProcessor arm;
 	private final THUMBProcessor thumb;
+	private final SWIHandler swi;
 	protected final CPSR cpsr; //CPSR (CONDITION CODE FLAGS AND CURRENT MODE BITS)
 	protected final Waitstate wait;
 	
@@ -63,6 +64,7 @@ public class CPU {
 	public CPU() {
 		arm = new ARMProcessor(this);
 		thumb = new THUMBProcessor(this);
+		swi = new SWIHandler(this);
 		cpsr = new CPSR();
 		wait = new Waitstate();
 	}
@@ -215,10 +217,6 @@ public class CPU {
 	}
 
 	protected void softwareInterrupt(byte arg) {
-
-	}
-
-	protected void softwareInterrupt(int arg) {
 
 	}
 

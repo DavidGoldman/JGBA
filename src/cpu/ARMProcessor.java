@@ -1683,7 +1683,8 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	private void softwareInterrupt(int instr) {
-		cpu.softwareInterrupt(instr & 0xFFFFFF);
+		//Only use top byte of 24-bit value
+		cpu.softwareInterrupt((byte) (instr >>> 16));
 	}
 
 }
