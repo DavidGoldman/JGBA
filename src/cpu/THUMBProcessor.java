@@ -442,6 +442,7 @@ public class THUMBProcessor implements CPU.IProcessor {
 	 * MUL Rd, Rs (Rd = Rd * Rs)
 	 */
 	private void mul(int rd, int rs) {
+		cpu.wait.clockMUL(cpu.getLowReg(rs));
 		int val = cpu.getLowReg(rd) * cpu.getLowReg(rs);
 		cpu.cpsr.carry = false;
 		cpu.cpsr.negative = (val < 0);
@@ -593,6 +594,7 @@ public class THUMBProcessor implements CPU.IProcessor {
 	}
 
 	private void ldr(int instr) {
+		cpu.wait.internalCycles(1); //Clock internal cycle
 		//Pre-indexed word load, get address from reg (bit 5-3) and reg (bit 8-6)
 		int address = cpu.getLowReg(instr >>> 3) + cpu.getLowReg(instr >>> 6);
 		//Load the value at [address] into the reg (instr & 0x7)
@@ -600,6 +602,7 @@ public class THUMBProcessor implements CPU.IProcessor {
 	}
 
 	private void ldrb(int instr) {
+		cpu.wait.internalCycles(1); //Clock internal cycle
 		//Pre-indexed byte load, get address from reg (bit 5-3) and reg (bit 8-6)
 		int address = cpu.getLowReg(instr >>> 3) + cpu.getLowReg(instr >>> 6);
 		//Load the byte at [address] into the reg (instr & 0x7)
@@ -607,6 +610,7 @@ public class THUMBProcessor implements CPU.IProcessor {
 	}
 
 	private void ldsb(int instr) {
+		cpu.wait.internalCycles(1); //Clock internal cycle
 		//Sign extended byte load, get address from reg (bit 5-3) and reg (bit 8-6)
 		int address = cpu.getLowReg(instr >>> 3) + cpu.getLowReg(instr >>> 6);
 		//Load the byte at [address] into the reg (instr & 0x7)
@@ -615,6 +619,7 @@ public class THUMBProcessor implements CPU.IProcessor {
 	}
 
 	private void ldrh(int instr) {
+		cpu.wait.internalCycles(1); //Clock internal cycle
 		//Halfword load, get address from reg (bit 5-3) and reg (bit 8-6)
 		int address = cpu.getLowReg(instr >>> 3) + cpu.getLowReg(instr >>> 6);
 		//Load the halfword at [address] into the reg (instr & 0x7)
@@ -622,6 +627,7 @@ public class THUMBProcessor implements CPU.IProcessor {
 	}	
 
 	private void ldsh(int instr) {
+		cpu.wait.internalCycles(1); //Clock internal cycle
 		//Sign extended Halfword load, get address from reg (bit 5-3) and reg (bit 8-6)
 		int address = cpu.getLowReg(instr >>> 3) + cpu.getLowReg(instr >>> 6);
 		//Load the halfword at [address] into the reg (instr & 0x7)
@@ -646,6 +652,7 @@ public class THUMBProcessor implements CPU.IProcessor {
 	}
 
 	private void ldrImm(int instr) {
+		cpu.wait.internalCycles(1); //Clock internal cycle
 		//Address is the sum of the immediate5 (which is actually immediate7) and value in Rb
 		//Offset7 = (Bit 10-6) << 2, Rb = bit 5-3
 		int address = (((instr >>> 6) & 0x1F) << 2) + cpu.getLowReg(instr >>> 3);
@@ -654,6 +661,7 @@ public class THUMBProcessor implements CPU.IProcessor {
 	}
 
 	private void ldrbImm(int instr) {
+		cpu.wait.internalCycles(1); //Clock internal cycle
 		//Address is the sum of the immediate5 and value in Rb
 		//Offset5 = Bit 10-6, Rb = bit 5-3
 		int address = ((instr >>> 6) & 0x1F) + cpu.getLowReg(instr >>> 3);
@@ -670,6 +678,7 @@ public class THUMBProcessor implements CPU.IProcessor {
 	}
 
 	private void ldrhImm(int instr) {
+		cpu.wait.internalCycles(1); //Clock internal cycle
 		//Address is the sum of the immediate5 (which is actually immediate6) and value in Rb
 		//Offset6 = (Bit 10-6) << 1, Rb = bit 5-3
 		int address = (((instr >>> 6) & 0x1F) << 1) + cpu.getLowReg(instr >>> 3);
@@ -684,6 +693,7 @@ public class THUMBProcessor implements CPU.IProcessor {
 	}
 
 	private void spRelativeLoad(int instr) {
+		cpu.wait.internalCycles(1); //Clock internal cycle
 		//Offset is actually an unsigned 10 bit value
 		int address = cpu.getSP() + ((instr & 0xFF) << 2);
 		cpu.setLowReg(instr >>> 8, cpu.read32(address));
@@ -724,6 +734,7 @@ public class THUMBProcessor implements CPU.IProcessor {
 	}
 
 	private void popRegisters(int instr) {
+		cpu.wait.internalCycles(1); //Clock internal cycle
 		//POST INCR
 		int sp = cpu.getSP();
 		for (byte reg = 0; reg <= 7; ++reg) {
@@ -752,6 +763,7 @@ public class THUMBProcessor implements CPU.IProcessor {
 	}
 
 	private void loadMult(int instr) {
+		cpu.wait.internalCycles(1); //Clock internal cycle
 		//POST INCR
 		int address = cpu.getLowReg(instr >>> 8);
 		for (byte reg = 0; reg <= 7; ++reg) {

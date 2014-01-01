@@ -53,7 +53,70 @@ public class Waitstate {
 		//TODO clock internal cycles, prefetch/prefetch disable bug
 	}
 	
-	public void internalCycle() {
-		//TODO clock internal cycle, check prefetch disable bug
+	public void clockMUL(int op2) {
+		if ((op2 >>> 8) == 0 || (op2 >>> 8) == 0xFFFFFF)
+			internalCycles(1);
+		else if ((op2 >>> 16) == 0 || (op2 >>> 16) == 0xFFFF)
+			internalCycles(2);
+		else if ((op2 >>> 24) == 0 || (op2 >>> 24) == 0xFF)
+			internalCycles(3);
+		else
+			internalCycles(4);
 	}
+	
+	public void clockMLA(int op2) {
+		if ((op2 >>> 8) == 0 || (op2 >>> 8) == 0xFFFFFF)
+			internalCycles(2);
+		else if ((op2 >>> 16) == 0 || (op2 >>> 16) == 0xFFFF)
+			internalCycles(3);
+		else if ((op2 >>> 24) == 0 || (op2 >>> 24) == 0xFF)
+			internalCycles(4);
+		else
+			internalCycles(5);
+	}
+	
+	public void clockSMULL(int op2) {
+		if ((op2 >>> 8) == 0 || (op2 >>> 8) == 0xFFFFFF)
+			internalCycles(2);
+		else if ((op2 >>> 16) == 0 || (op2 >>> 16) == 0xFFFF)
+			internalCycles(3);
+		else if ((op2 >>> 24) == 0 || (op2 >>> 24) == 0xFF)
+			internalCycles(4);
+		else
+			internalCycles(5);
+	}
+	
+	public void clockSMLAL(int op2) {
+		if ((op2 >>> 8) == 0 || (op2 >>> 8) == 0xFFFFFF)
+			internalCycles(3);
+		else if ((op2 >>> 16) == 0 || (op2 >>> 16) == 0xFFFF)
+			internalCycles(4);
+		else if ((op2 >>> 24) == 0 || (op2 >>> 24) == 0xFF)
+			internalCycles(5);
+		else
+			internalCycles(6);
+	}
+	
+	public void clockUMULL(int op2) {
+		if ((op2 >>> 8) == 0)
+			internalCycles(2);
+		else if ((op2 >>> 16) == 0)
+			internalCycles(3);
+		else if ((op2 >>> 24) == 0)
+			internalCycles(4);
+		else
+			internalCycles(5);
+	}
+	
+	public void clockUMLAL(int op2) {
+		if ((op2 >>> 8) == 0)
+			internalCycles(3);
+		else if ((op2 >>> 16) == 0)
+			internalCycles(4);
+		else if ((op2 >>> 24) == 0)
+			internalCycles(5);
+		else
+			internalCycles(6);
+	}
+	
 }

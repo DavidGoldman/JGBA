@@ -179,7 +179,7 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	private int getOp2(int shift, int rm) {
-		cpu.wait.internalCycle(); //Clock internal cycle
+		cpu.wait.internalCycles(1); //Clock internal cycle
 		byte type = (byte)((shift & 0x6) >>> 1); //type is bit 6-5
 		
 		if ((shift & 0x1) == 0) { //shift unsigned integer
@@ -254,7 +254,7 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	private int getOp2S(int shift, int rm) {
-		cpu.wait.internalCycle(); //Clock internal cycle
+		cpu.wait.internalCycles(1); //Clock internal cycle
 		byte type = (byte)((shift & 0x6) >>> 1); //type is bit 6-5
 		
 		if ((shift & 0x1) == 0) { //shift unsigned integer
@@ -654,10 +654,12 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	private void mul(int rd, int rm, int rs) {
+		cpu.wait.clockMUL(cpu.getReg(rs));
 		setRegSafe(rd, cpu.getReg(rm) * cpu.getReg(rs));
 	}
 
 	private void muls(int rd, int rm, int rs) {
+		cpu.wait.clockMUL(cpu.getReg(rs));
 		int val = cpu.getReg(rm) * cpu.getReg(rs);
 		cpu.cpsr.carry = false;
 		cpu.cpsr.negative = (val < 0);
@@ -666,10 +668,12 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	private void mla(int rd, int rm, int rs, int rn) {
+		cpu.wait.clockMLA(cpu.getReg(rs));
 		setRegSafe(rd, cpu.getReg(rm)*cpu.getReg(rs) + cpu.getReg(rn));
 	}
 
 	private void mlas(int rd, int rm, int rs, int rn) {
+		cpu.wait.clockMLA(cpu.getReg(rs));
 		int val = cpu.getReg(rm)*cpu.getReg(rs) + cpu.getReg(rn);
 		cpu.cpsr.carry = false;
 		cpu.cpsr.negative = (val < 0);
@@ -696,12 +700,14 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	private void umull(int rdHi, int rdLo, int rm, int rs) {
+		cpu.wait.clockUMULL(cpu.getReg(rs));
 		long result = (cpu.getReg(rm) & 0xFFFFFFFFL)*(cpu.getReg(rs) & 0xFFFFFFFFL);
 		setRegSafe(rdHi, (int) (result >>> 32));
 		setRegSafe(rdLo, (int) result);
 	}
 
 	private void umulls(int rdHi, int rdLo, int rm, int rs) {
+		cpu.wait.clockUMULL(cpu.getReg(rs));
 		long result = (cpu.getReg(rm) & 0xFFFFFFFFL)*(cpu.getReg(rs) & 0xFFFFFFFFL);
 		cpu.cpsr.carry = false;
 		cpu.cpsr.negative = (result < 0);
@@ -711,12 +717,14 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	private void umlal(int rdHi, int rdLo, int rm, int rs) {
+		cpu.wait.clockUMLAL(cpu.getReg(rs));
 		long result = (cpu.getReg(rm) & 0xFFFFFFFFL)*(cpu.getReg(rs) & 0xFFFFFFFFL) + (((cpu.getReg(rdHi) & 0xFFFFFFFFL) << 32) | (cpu.getReg(rdLo) & 0xFFFFFFFFL));
 		setRegSafe(rdHi, (int) (result >>> 32));
 		setRegSafe(rdLo, (int) result);
 	}
 
 	private void umlals(int rdHi, int rdLo, int rm, int rs) {
+		cpu.wait.clockUMLAL(cpu.getReg(rs));
 		long result = (cpu.getReg(rm) & 0xFFFFFFFFL)*(cpu.getReg(rs) & 0xFFFFFFFFL) + (((cpu.getReg(rdHi) & 0xFFFFFFFFL) << 32) | (cpu.getReg(rdLo) & 0xFFFFFFFFL));
 		cpu.cpsr.carry = false;
 		cpu.cpsr.negative = (result < 0);
@@ -726,12 +734,14 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	private void smull(int rdHi, int rdLo, int rm, int rs) {
+		cpu.wait.clockSMULL(cpu.getReg(rs));
 		long result = ((long) cpu.getReg(rm))*cpu.getReg(rs);
 		setRegSafe(rdHi, (int) (result >>> 32));
 		setRegSafe(rdLo, (int) result);
 	}
 
 	private void smulls(int rdHi, int rdLo, int rm, int rs) {
+		cpu.wait.clockSMULL(cpu.getReg(rs));
 		long result = ((long) cpu.getReg(rm))*cpu.getReg(rs);
 		cpu.cpsr.carry = false;
 		cpu.cpsr.negative = (result < 0);
@@ -741,12 +751,14 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	private void smlal(int rdHi, int rdLo, int rm, int rs) {
+		cpu.wait.clockSMLAL(cpu.getReg(rs));
 		long result = ((long) cpu.getReg(rm))*cpu.getReg(rs) + (((cpu.getReg(rdHi) & 0xFFFFFFFFL) << 32) | (cpu.getReg(rdLo) & 0xFFFFFFFFL));
 		setRegSafe(rdHi, (int) (result >>> 32));
 		setRegSafe(rdLo, (int) result);
 	}
 
 	private void smlals(int rdHi, int rdLo, int rm, int rs) {
+		cpu.wait.clockSMLAL(cpu.getReg(rs));
 		long result = ((long) cpu.getReg(rm))*cpu.getReg(rs) + (((cpu.getReg(rdHi) & 0xFFFFFFFFL) << 32) | (cpu.getReg(rdLo) & 0xFFFFFFFFL));
 		cpu.cpsr.carry = false;
 		cpu.cpsr.negative = (result < 0);
@@ -768,7 +780,7 @@ public class ARMProcessor implements CPU.IProcessor {
 	private void swpb(int rn, int rd, int rs) {
 		int address = cpu.getReg(rn);
 		int contents = cpu.read8(address);
-		cpu.wait.internalCycle(); //Clock internal cycle
+		cpu.wait.internalCycles(1); //Clock internal cycle
 		cpu.write8(address, cpu.getReg(rs));
 		setRegSafe(rd, contents);
 	}
@@ -776,7 +788,7 @@ public class ARMProcessor implements CPU.IProcessor {
 	private void swp(int rn, int rd, int rs) {
 		int address = cpu.getReg(rn);
 		int contents = cpu.read32(address);
-		cpu.wait.internalCycle(); //Clock internal cycle
+		cpu.wait.internalCycles(1); //Clock internal cycle
 		cpu.write32(address, cpu.getReg(rs));
 		setRegSafe(rd, contents);
 	}
@@ -811,15 +823,18 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	private void ldrh(int reg, int address) {
+		cpu.wait.internalCycles(1); //Clock internal cycle
 		setRegSafe(reg, cpu.read16(address));
 	}
 
 	private void ldrsh(int reg, int address) {
+		cpu.wait.internalCycles(1); //Clock internal cycle
 		//Load sign extended half word
 		setRegSafe(reg, (cpu.read16(address) << 16) >> 16);
 	}
 
 	private void ldrsb(int reg, int address) {
+		cpu.wait.internalCycles(1); //Clock internal cycle
 		//Load sign extended byte
 		setRegSafe(reg, (cpu.read8(address) << 24) >> 24);
 	}
@@ -955,6 +970,7 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	private void ldr(int reg, int address) {
+		cpu.wait.internalCycles(1); //Clock internal cycle
 		setRegSafe(reg, cpu.read32(address));
 	}
 
@@ -963,6 +979,7 @@ public class ARMProcessor implements CPU.IProcessor {
 	}
 
 	private void ldrb(int reg, int address) {
+		cpu.wait.internalCycles(1); //Clock internal cycle
 		setRegSafe(reg, cpu.read8(address));
 	}
 
@@ -1179,6 +1196,7 @@ public class ARMProcessor implements CPU.IProcessor {
 
 	//PRE DECR
 	private void ldmdb(int base, int list) {
+		cpu.wait.internalCycles(1); //Clock internal cycle
 		int address = cpu.getReg(base);
 		for (byte reg = 15; reg >= 0; --reg) { 
 			if ((list & (1 << reg)) != 0)	{
@@ -1190,6 +1208,7 @@ public class ARMProcessor implements CPU.IProcessor {
 
 	//PRE DECR - write back
 	private void ldmdbw(int base, int list) {
+		cpu.wait.internalCycles(1); //Clock internal cycle
 		int address = cpu.getReg(base);
 		for (byte reg = 15; reg >= 0; --reg) { 
 			if ((list & (1 << reg)) != 0)	{
@@ -1202,6 +1221,7 @@ public class ARMProcessor implements CPU.IProcessor {
 
 	//PRE DECR - user mode/SPSR transfer
 	private void ldmdbs(int base, int list) {
+		cpu.wait.internalCycles(1); //Clock internal cycle
 		int address = cpu.getReg(base);
 		if ((list & 0x8000) == 0x8000) { //R15 is in list - special mode change
 			address -= 4;
@@ -1225,6 +1245,7 @@ public class ARMProcessor implements CPU.IProcessor {
 
 	//PRE DECR - write back and user mode/SPSR transfer
 	private void ldmdbws(int base, int list) {
+		cpu.wait.internalCycles(1); //Clock internal cycle
 		int address = cpu.getReg(base);
 		if ((list & 0x8000) == 0x8000) { //R15 is in list - special mode change
 			address -= 4;
@@ -1295,6 +1316,7 @@ public class ARMProcessor implements CPU.IProcessor {
 
 	//PRE INCR
 	private void ldmib(int base, int list) {
+		cpu.wait.internalCycles(1); //Clock internal cycle
 		int address = cpu.getReg(base);
 		for (byte reg = 0; reg <= 15; ++reg) {
 			if ((list & (1 << reg)) != 0)	{
@@ -1306,6 +1328,7 @@ public class ARMProcessor implements CPU.IProcessor {
 
 	//PRE INCR - write back
 	private void ldmibw(int base, int list) {
+		cpu.wait.internalCycles(1); //Clock internal cycle
 		int address = cpu.getReg(base);
 		for (byte reg = 0; reg <= 15; ++reg) {
 			if ((list & (1 << reg)) != 0)	{
@@ -1318,6 +1341,7 @@ public class ARMProcessor implements CPU.IProcessor {
 
 	//PRE INCR - user mode/SPSR transfer
 	private void ldmibs(int base, int list) {
+		cpu.wait.internalCycles(1); //Clock internal cycle
 		int address = cpu.getReg(base);
 		if ((list & 0x8000) == 0x8000) { //R15 is in list - special mode change
 			for (byte reg = 0; reg <= 14; ++reg) { 
@@ -1341,6 +1365,7 @@ public class ARMProcessor implements CPU.IProcessor {
 
 	//PRE INCR - write back and user mode/SPSR transfer
 	private void ldmibws(int base, int list) {
+		cpu.wait.internalCycles(1); //Clock internal cycle
 		int address = cpu.getReg(base);
 		if ((list & 0x8000) == 0x8000) { //R15 is in list - special mode change
 			for (byte reg = 0; reg <= 14; ++reg) { 
@@ -1436,6 +1461,7 @@ public class ARMProcessor implements CPU.IProcessor {
 
 	//POST DECR
 	private void ldmda(int base, int list) {
+		cpu.wait.internalCycles(1); //Clock internal cycle
 		int address = cpu.getReg(base);
 		for (byte reg = 15; reg >= 0; --reg) { 
 			if ((list & (1 << reg)) != 0)	{
@@ -1447,6 +1473,7 @@ public class ARMProcessor implements CPU.IProcessor {
 
 	//POST DECR - write back
 	private void ldmdaw(int base, int list) {
+		cpu.wait.internalCycles(1); //Clock internal cycle
 		int address = cpu.getReg(base);
 		for (byte reg = 15; reg >= 0; --reg) { 
 			if ((list & (1 << reg)) != 0)	{
@@ -1459,6 +1486,7 @@ public class ARMProcessor implements CPU.IProcessor {
 
 	//POST DECR - user mode/SPSR transfer
 	private void ldmdas(int base, int list) {
+		cpu.wait.internalCycles(1); //Clock internal cycle
 		int address = cpu.getReg(base);
 		if ((list & 0x8000) == 0x8000) { //R15 is in list - special mode change
 			setRegSafeCPSR(15, cpu.read32(address));
@@ -1482,6 +1510,7 @@ public class ARMProcessor implements CPU.IProcessor {
 
 	//POST DECR - write back and user mode/SPSR transfer
 	private void ldmdaws(int base, int list) {
+		cpu.wait.internalCycles(1); //Clock internal cycle
 		int address = cpu.getReg(base);
 		if ((list & 0x8000) == 0x8000) { //R15 is in list - special mode change
 			setRegSafeCPSR(15, cpu.read32(address));
@@ -1552,6 +1581,7 @@ public class ARMProcessor implements CPU.IProcessor {
 
 	//POST INCR
 	private void ldmia(int base, int list) {
+		cpu.wait.internalCycles(1); //Clock internal cycle
 		int address = cpu.getReg(base);
 		for (byte reg = 0; reg <= 15; ++reg) {
 			if ((list & (1 << reg)) != 0)	{
@@ -1563,6 +1593,7 @@ public class ARMProcessor implements CPU.IProcessor {
 
 	//POST INCR - write back
 	private void ldmiaw(int base, int list) {
+		cpu.wait.internalCycles(1); //Clock internal cycle
 		int address = cpu.getReg(base);
 		for (byte reg = 0; reg <= 15; ++reg) {
 			if ((list & (1 << reg)) != 0)	{
@@ -1575,6 +1606,7 @@ public class ARMProcessor implements CPU.IProcessor {
 
 	//POST INCR - user mode/SPSR transfer
 	private void ldmias(int base, int list) {
+		cpu.wait.internalCycles(1); //Clock internal cycle
 		int address = cpu.getReg(base);
 		if ((list & 0x8000) == 0x8000) { //R15 is in list - special mode change
 			for (byte reg = 0; reg <= 14; ++reg) { 
@@ -1598,6 +1630,7 @@ public class ARMProcessor implements CPU.IProcessor {
 
 	//POST INCR - write back and user mode/SPSR transfer
 	private void ldmiaws(int base, int list) {
+		cpu.wait.internalCycles(1); //Clock internal cycle
 		int address = cpu.getReg(base);
 		if ((list & 0x8000) == 0x8000) { //R15 is in list - special mode change
 			for (byte reg = 0; reg <= 14; ++reg) { 
