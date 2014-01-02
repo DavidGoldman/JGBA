@@ -26,6 +26,16 @@ public class Timers {
 		//Prescalers initialize to 1, everything else initializes to 0/false
 		t0Prescaler = t1Prescaler = t2Prescaler = t3Prescaler = 1;
 	}
+	
+	public void step(int clocks) {
+		stepSound(clocks); //Timer 0 and 1 are special sound timers
+		clockTimer2(clocks);
+		clockTimer3(clocks);
+	}
+	
+	private void stepSound(int clocks) {
+		
+	}
 
 	private void clockTimer0(int clocks) {
 		if (t0Enabled) {
@@ -107,15 +117,26 @@ public class Timers {
 	}
 
 	private void countUpTimer1() {
-
+		if (t1Enabled && t1CountUp && (++t1Counter) >= OVERFLOW) {
+			t1Counter = t1Reload;
+			triggerTimer1();
+			countUpTimer2();
+		}
 	}
 
 	private void countUpTimer2() {
-
+		if (t2Enabled && t2CountUp && (++t2Counter) >= OVERFLOW) {
+			t2Counter = t2Reload;
+			triggerTimer2();
+			countUpTimer3();
+		}
 	}
 	
 	private void countUpTimer3() {
-
+		if (t3Enabled && t3CountUp && (++t3Counter) >= OVERFLOW) {
+			t3Counter = t3Reload;
+			triggerTimer3();
+		}
 	}
 
 }
